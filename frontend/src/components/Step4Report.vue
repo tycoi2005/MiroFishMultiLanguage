@@ -65,8 +65,15 @@
           </div>
         </div>
 
+        <!-- Error State -->
+        <div v-if="isFailed" class="error-placeholder">
+          <div class="error-icon">&#x26A0;</div>
+          <span class="error-title">Report Generation Failed</span>
+          <span class="error-detail">{{ errorMessage }}</span>
+        </div>
+
         <!-- Waiting State -->
-        <div v-if="!reportOutline" class="waiting-placeholder">
+        <div v-else-if="!reportOutline" class="waiting-placeholder">
           <div class="waiting-animation">
             <div class="waiting-ring"></div>
             <div class="waiting-ring"></div>
@@ -423,6 +430,8 @@ const expandedContent = ref(new Set())
 const expandedLogs = ref(new Set())
 const collapsedSections = ref(new Set())
 const isComplete = ref(false)
+const isFailed = ref(false)
+const errorMessage = ref('')
 const startTime = ref(null)
 const leftPanel = ref(null)
 const rightPanel = ref(null)
@@ -1702,12 +1711,14 @@ const QuickSearchDisplay = {
 
 // Computed
 const statusClass = computed(() => {
+  if (isFailed.value) return 'error'
   if (isComplete.value) return 'completed'
   if (agentLogs.value.length > 0) return 'processing'
   return 'pending'
 })
 
 const statusText = computed(() => {
+  if (isFailed.value) return 'Error'
   if (isComplete.value) return 'Completed'
   if (agentLogs.value.length > 0) return 'Generating...'
   return 'Waiting'
@@ -1796,27 +1807,43 @@ const workflowSteps = computed(() => {
   const sections = reportOutline.value?.sections || []
   sections.forEach((section, i) => {
     const idx = i + 1
-    const status = (isComplete.value || !!generatedSections.value[idx])
-      ? 'done'
-      : (activeSectionIndex.value === idx ? 'active' : 'todo')
+    let status
+    if (isComplete.value || !!generatedSections.value[idx]) {
+      status = 'done'
+    } else if (isFailed.value && activeSectionIndex.value === idx) {
+      status = 'error'
+    } else if (activeSectionIndex.value === idx) {
+      status = 'active'
+    } else {
+      status = 'todo'
+    }
 
     steps.push({
       key: `section-${idx}`,
       noLabel: String(idx).padStart(2, '0'),
       title: section.title,
       status,
-      meta: status === 'active' ? 'IN PROGRESS' : ''
+      meta: status === 'active' ? 'IN PROGRESS' : (status === 'error' ? 'FAILED' : '')
     })
   })
 
   // Complete
-  const completeStatus = isComplete.value ? 'done' : (isFinalizing.value ? 'active' : 'todo')
+  let completeStatus
+  if (isFailed.value) {
+    completeStatus = 'error'
+  } else if (isComplete.value) {
+    completeStatus = 'done'
+  } else if (isFinalizing.value) {
+    completeStatus = 'active'
+  } else {
+    completeStatus = 'todo'
+  }
   steps.push({
     key: 'complete',
     noLabel: 'OK',
-    title: 'Complete',
+    title: isFailed.value ? 'Failed' : 'Complete',
     status: completeStatus,
-    meta: completeStatus === 'active' ? 'FINALIZING' : ''
+    meta: completeStatus === 'active' ? 'FINALIZING' : (completeStatus === 'error' ? 'FAILED' : '')
   })
 
   return steps
@@ -2015,9 +2042,23 @@ const getLogLevelClass = (log) => {
 // Polling
 let agentLogTimer = null
 let consoleLogTimer = null
+let lastLogReceivedAt = Date.now()
+const POLL_STALE_TIMEOUT_MS = 5 * 60 * 1000  // 5 minutes with no new logs = timeout
 
 const fetchAgentLog = async () => {
   if (!props.reportId) return
+
+  // Timeout failsafe: if no new logs received for a long time, assume backend died
+  if (!isComplete.value && !isFailed.value && Date.now() - lastLogReceivedAt > POLL_STALE_TIMEOUT_MS) {
+    console.error('Polling timeout: no new agent logs for 5 minutes')
+    errorMessage.value = 'Report generation timed out — no response from backend for 5 minutes.'
+    isFailed.value = true
+    isComplete.value = true
+    currentSectionIndex.value = null
+    emit('update-status', 'error')
+    stopPolling()
+    return
+  }
   
   try {
     const res = await getAgentLog(props.reportId, agentLogLine.value)
@@ -2026,6 +2067,7 @@ const fetchAgentLog = async () => {
       const newLogs = res.data.logs || []
       
       if (newLogs.length > 0) {
+        lastLogReceivedAt = Date.now()
         newLogs.forEach(log => {
           agentLogs.value.push(log)
           
@@ -2053,6 +2095,17 @@ const fetchAgentLog = async () => {
             emit('update-status', 'completed')
             stopPolling()
             // 滚动逻辑统一在循环结束后的 nextTick 中处理
+          }
+
+          // 处理错误：后端报告生成失败时发送 action='error'
+          if (log.action === 'error') {
+            console.error('Report generation error:', log.details?.error || log.details?.message)
+            errorMessage.value = log.details?.error || log.details?.message || '报告生成失败'
+            isComplete.value = true
+            isFailed.value = true
+            currentSectionIndex.value = null
+            emit('update-status', 'error')
+            stopPolling()
           }
           
           if (log.action === 'report_start') {
@@ -2195,7 +2248,10 @@ watch(() => props.reportId, (newId) => {
     expandedLogs.value = new Set()
     collapsedSections.value = new Set()
     isComplete.value = false
+    isFailed.value = false
+    errorMessage.value = ''
     startTime.value = null
+    lastLogReceivedAt = Date.now()
     
     startPolling()
   }
@@ -2616,6 +2672,43 @@ watch(() => props.reportId, (newId) => {
   opacity: 1;
 }
 
+/* Error Placeholder */
+.error-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  color: #EF4444;
+}
+
+.error-icon {
+  font-size: 48px;
+  line-height: 1;
+}
+
+.error-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #EF4444;
+}
+
+.error-detail {
+  font-size: 13px;
+  color: #9CA3AF;
+  text-align: center;
+  max-width: 400px;
+  word-break: break-word;
+}
+
+/* Status error class */
+.status-badge.error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #EF4444;
+}
+
 /* Waiting Placeholder */
 .waiting-placeholder {
   flex: 1;
@@ -2810,6 +2903,11 @@ watch(() => props.reportId, (newId) => {
   border-style: dashed;
 }
 
+.wf-step--error {
+  background: rgba(239, 68, 68, 0.05);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
 .wf-step-connector {
   display: flex;
   flex-direction: column;
@@ -2841,6 +2939,19 @@ watch(() => props.reportId, (newId) => {
 
 .wf-step--done .wf-step-dot {
   background: var(--wf-done-dot);
+}
+
+.wf-step--error .wf-step-dot {
+  background: #EF4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+
+.wf-step--error .wf-step-meta {
+  color: #EF4444;
+}
+
+.wf-step--error .wf-step-title {
+  color: #EF4444;
 }
 
 .wf-step-title-row {
