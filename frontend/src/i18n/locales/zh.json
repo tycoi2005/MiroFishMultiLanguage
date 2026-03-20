@@ -36,7 +36,9 @@
   },
   "lang": {
     "en": "English",
-    "zh": "中文"
+    "zh": "中文",
+    "vi": "越南语",
+    "de": "德语"
   },
   "nav": {
     "visitGithub": "访问我们的Github主页",

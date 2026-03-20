@@ -36,7 +36,9 @@
   },
   "lang": {
     "en": "English",
-    "zh": "Chinese"
+    "zh": "Chinese",
+    "vi": "Vietnamese",
+    "de": "German"
   },
   "nav": {
     "visitGithub": "Visit our GitHub",

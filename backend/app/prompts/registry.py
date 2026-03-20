@@ -30,6 +30,10 @@ def get_prompts(locale: str = None):
 
     if locale == "zh":
         from app.prompts import zh as prompts
+    elif locale == "vi":
+        from app.prompts import vi as prompts
+    elif locale == "de":
+        from app.prompts import de as prompts
     else:
         from app.prompts import en as prompts
 

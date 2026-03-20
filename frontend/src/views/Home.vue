@@ -5,7 +5,7 @@
       <div class="nav-brand">MIROFISH</div>
       <div class="nav-links">
         <button class="lang-toggle" @click="toggleLocale">
-          {{ locale === 'en' ? '中文' : 'EN' }}
+          {{ {en: '中文', zh: 'VI', vi: 'DE', de: 'EN'}[locale] }}
         </button>
         <a href="https://github.com/666ghj/MiroFish" target="_blank" class="github-link">
           {{ $t('nav.visitGithub') }} <span class="arrow">↗</span>
@@ -218,8 +218,11 @@ import HistoryDatabase from '../components/HistoryDatabase.vue'
 
 const { t, locale } = useI18n()
 
+const localeOrder = ['en', 'zh', 'vi', 'de']
 const toggleLocale = () => {
-  setLocale(locale.value === 'en' ? 'zh' : 'en')
+  const idx = localeOrder.indexOf(locale.value)
+  const next = localeOrder[(idx + 1) % localeOrder.length]
+  setLocale(next)
 }
 
 const router = useRouter()

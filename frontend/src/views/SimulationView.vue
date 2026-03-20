@@ -30,7 +30,7 @@
           <span class="dot"></span>
           {{ statusText }}
         </span>
-        <button class="lang-toggle" @click="toggleLocale">{{ locale === 'en' ? '中文' : 'EN' }}</button>
+        <button class="lang-toggle" @click="toggleLocale">{{ {en: '中文', zh: 'VI', vi: 'DE', de: 'EN'}[locale] }}</button>
       </div>
     </header>
 
@@ -77,7 +77,12 @@ import { getSimulation, stopSimulation, getEnvStatus, closeSimulationEnv } from 
 const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
-const toggleLocale = () => setLocale(locale.value === 'en' ? 'zh' : 'en')
+const localeOrder = ['en', 'zh', 'vi', 'de']
+const toggleLocale = () => {
+  const idx = localeOrder.indexOf(locale.value)
+  const next = localeOrder[(idx + 1) % localeOrder.length]
+  setLocale(next)
+}
 
 // Props
 const props = defineProps({

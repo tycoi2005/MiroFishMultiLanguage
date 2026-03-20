@@ -256,18 +256,23 @@ class TestZepToolsToText:
 # ─────────────────────────────────────────────────────────────
 
 
+ALL_FRONTEND_LOCALES = ["en", "zh", "vi", "de"]
+
+
 class TestLocaleFiles:
-    """Test that en.json and zh.json have matching structures."""
+    """Test that all locale JSON files have matching structures."""
+
+    def _load_locale(self, locale):
+        with open(os.path.join(LOCALE_DIR, f"{locale}.json"), "r") as f:
+            return json.load(f)
 
     @pytest.fixture
     def en_data(self):
-        with open(os.path.join(LOCALE_DIR, "en.json"), "r") as f:
-            return json.load(f)
+        return self._load_locale("en")
 
     @pytest.fixture
     def zh_data(self):
-        with open(os.path.join(LOCALE_DIR, "zh.json"), "r") as f:
-            return json.load(f)
+        return self._load_locale("zh")
 
     def _flatten_keys(self, d, prefix=""):
         """Flatten nested dict to dot-separated key set."""
@@ -280,28 +285,22 @@ class TestLocaleFiles:
                 keys.add(full)
         return keys
 
-    def test_en_json_is_valid(self, en_data):
-        assert isinstance(en_data, dict)
-        assert len(en_data) > 0
+    @pytest.mark.parametrize("locale", ALL_FRONTEND_LOCALES)
+    def test_locale_json_is_valid(self, locale):
+        data = self._load_locale(locale)
+        assert isinstance(data, dict)
+        assert len(data) > 0
 
-    def test_zh_json_is_valid(self, zh_data):
-        assert isinstance(zh_data, dict)
-        assert len(zh_data) > 0
-
-    def test_same_top_level_keys(self, en_data, zh_data):
-        en_keys = set(en_data.keys())
-        zh_keys = set(zh_data.keys())
-        assert en_keys == zh_keys, (
-            f"Top-level key mismatch. EN-only: {en_keys - zh_keys}, ZH-only: {zh_keys - en_keys}"
-        )
-
-    def test_same_flattened_keys(self, en_data, zh_data):
+    @pytest.mark.parametrize("locale", ["zh", "vi", "de"])
+    def test_same_flattened_keys_as_en(self, locale):
+        en_data = self._load_locale("en")
+        other_data = self._load_locale(locale)
         en_keys = self._flatten_keys(en_data)
-        zh_keys = self._flatten_keys(zh_data)
-        missing_in_zh = en_keys - zh_keys
-        missing_in_en = zh_keys - en_keys
-        assert not missing_in_zh, f"Keys in en.json but not zh.json: {missing_in_zh}"
-        assert not missing_in_en, f"Keys in zh.json but not en.json: {missing_in_en}"
+        other_keys = self._flatten_keys(other_data)
+        missing = en_keys - other_keys
+        extra = other_keys - en_keys
+        assert not missing, f"Keys in en.json but not {locale}.json: {missing}"
+        assert not extra, f"Keys in {locale}.json but not en.json: {extra}"
 
     def test_no_empty_values_in_en(self, en_data):
         empty = []
@@ -310,12 +309,13 @@ class TestLocaleFiles:
                 empty.append(key)
         assert not empty, f"Empty values in en.json: {empty}"
 
-    def test_no_empty_values_in_zh(self, zh_data):
-        # home.descAfterSolution is intentionally empty in zh
-        # (Chinese sentence structure ends at the optimal solution)
+    @pytest.mark.parametrize("locale", ["zh", "vi", "de"])
+    def test_no_empty_values(self, locale):
+        # home.descAfterSolution may be intentionally empty in some locales
         ALLOWED_EMPTY = {"home.descAfterSolution"}
+        data = self._load_locale(locale)
         empty = []
-        for key, val in self._flatten_all(zh_data):
+        for key, val in self._flatten_all(data):
             if isinstance(val, str) and val.strip() == "" and key not in ALLOWED_EMPTY:
                 empty.append(key)
         assert not empty, f"Empty values in zh.json: {empty}"

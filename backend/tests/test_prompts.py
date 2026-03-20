@@ -1,5 +1,5 @@
 """
-Unit tests for the bilingual prompt system.
+Unit tests for the multilingual prompt system (en, zh, vi, de).
 
 Run with:
     cd backend && uv run pytest tests/test_prompts.py -v
@@ -11,6 +11,11 @@ from app.prompts import get_prompts, get_locale
 from app.prompts.registry import set_locale
 from app.prompts import en as en_module
 from app.prompts import zh as zh_module
+from app.prompts import vi as vi_module
+from app.prompts import de as de_module
+
+ALL_LOCALES = ["en", "zh", "vi", "de"]
+ALL_MODULES = {"en": en_module, "zh": zh_module, "vi": vi_module, "de": de_module}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -62,6 +67,14 @@ class TestRegistry:
         p = get_prompts("zh")
         assert hasattr(p, "PLAN_SYSTEM_PROMPT")
 
+    def test_get_prompts_returns_vi(self):
+        p = get_prompts("vi")
+        assert hasattr(p, "PLAN_SYSTEM_PROMPT")
+
+    def test_get_prompts_returns_de(self):
+        p = get_prompts("de")
+        assert hasattr(p, "PLAN_SYSTEM_PROMPT")
+
     def test_default_locale_is_en(self):
         # get_locale() should default to "en" for a fresh thread
         locale = get_locale()
@@ -101,31 +114,38 @@ class TestRegistry:
 
 
 class TestParity:
-    """Ensure en.py and zh.py have matching constant names."""
+    """Ensure all locale files have matching constant names."""
 
-    def test_all_en_constants_exist_in_zh(self):
+    @pytest.mark.parametrize("locale", ["zh", "vi", "de"])
+    def test_all_en_constants_exist_in_locale(self, locale):
         en_attrs = _get_public_attrs(en_module)
-        zh_attrs = _get_public_attrs(zh_module)
-        missing = set(en_attrs.keys()) - set(zh_attrs.keys())
-        assert not missing, f"Constants in en.py but missing from zh.py: {missing}"
+        other_attrs = _get_public_attrs(ALL_MODULES[locale])
+        missing = set(en_attrs.keys()) - set(other_attrs.keys())
+        assert not missing, (
+            f"Constants in en.py but missing from {locale}.py: {missing}"
+        )
 
-    def test_all_zh_constants_exist_in_en(self):
+    @pytest.mark.parametrize("locale", ["zh", "vi", "de"])
+    def test_all_locale_constants_exist_in_en(self, locale):
         en_attrs = _get_public_attrs(en_module)
-        zh_attrs = _get_public_attrs(zh_module)
-        missing = set(zh_attrs.keys()) - set(en_attrs.keys())
-        assert not missing, f"Constants in zh.py but missing from en.py: {missing}"
+        other_attrs = _get_public_attrs(ALL_MODULES[locale])
+        missing = set(other_attrs.keys()) - set(en_attrs.keys())
+        assert not missing, (
+            f"Constants in {locale}.py but missing from en.py: {missing}"
+        )
 
-    def test_constant_types_match(self):
-        """Each constant should have the same type in both locales."""
+    @pytest.mark.parametrize("locale", ["zh", "vi", "de"])
+    def test_constant_types_match(self, locale):
+        """Each constant should have the same type across all locales."""
         en_attrs = _get_public_attrs(en_module)
-        zh_attrs = _get_public_attrs(zh_module)
-        common = set(en_attrs.keys()) & set(zh_attrs.keys())
+        other_attrs = _get_public_attrs(ALL_MODULES[locale])
+        common = set(en_attrs.keys()) & set(other_attrs.keys())
         mismatches = []
         for name in sorted(common):
             en_type = type(en_attrs[name]).__name__
-            zh_type = type(zh_attrs[name]).__name__
-            if en_type != zh_type:
-                mismatches.append(f"{name}: en={en_type}, zh={zh_type}")
+            other_type = type(other_attrs[name]).__name__
+            if en_type != other_type:
+                mismatches.append(f"{name}: en={en_type}, {locale}={other_type}")
         assert not mismatches, f"Type mismatches:\n" + "\n".join(mismatches)
 
 
@@ -156,20 +176,21 @@ TEMPLATE_CONSTANTS = [
 
 
 class TestPlaceholders:
-    """Ensure template placeholders match between en and zh."""
+    """Ensure template placeholders match across all locales."""
 
     @pytest.mark.parametrize("name", TEMPLATE_CONSTANTS)
-    def test_template_placeholders_match(self, name):
+    @pytest.mark.parametrize("locale", ["zh", "vi", "de"])
+    def test_template_placeholders_match(self, name, locale):
         en_val = getattr(en_module, name, None)
-        zh_val = getattr(zh_module, name, None)
-        if en_val is None or zh_val is None:
-            pytest.skip(f"{name} missing in one locale")
+        other_val = getattr(ALL_MODULES[locale], name, None)
+        if en_val is None or other_val is None:
+            pytest.skip(f"{name} missing in en or {locale}")
         en_ph = _find_placeholders(en_val)
-        zh_ph = _find_placeholders(zh_val)
-        assert en_ph == zh_ph, (
-            f"Placeholder mismatch in {name}:\n"
+        other_ph = _find_placeholders(other_val)
+        assert en_ph == other_ph, (
+            f"Placeholder mismatch in {name} (en vs {locale}):\n"
             f"  en: {sorted(en_ph)}\n"
-            f"  zh: {sorted(zh_ph)}"
+            f"  {locale}: {sorted(other_ph)}"
         )
 
 
@@ -278,16 +299,9 @@ class TestFormatting:
     """Ensure all templates can be formatted without KeyError."""
 
     @pytest.mark.parametrize("name", list(TEMPLATE_FORMAT_ARGS.keys()))
-    def test_en_template_formats(self, name):
-        template = getattr(en_module, name)
-        args = TEMPLATE_FORMAT_ARGS[name]
-        result = template.format(**args)
-        assert isinstance(result, str)
-        assert len(result) > 0
-
-    @pytest.mark.parametrize("name", list(TEMPLATE_FORMAT_ARGS.keys()))
-    def test_zh_template_formats(self, name):
-        template = getattr(zh_module, name)
+    @pytest.mark.parametrize("locale", ALL_LOCALES)
+    def test_template_formats(self, name, locale):
+        template = getattr(ALL_MODULES[locale], name)
         args = TEMPLATE_FORMAT_ARGS[name]
         result = template.format(**args)
         assert isinstance(result, str)
@@ -345,7 +359,7 @@ class TestContent:
         )
 
     def test_tool_descriptions_not_empty(self):
-        for locale in ["en", "zh"]:
+        for locale in ALL_LOCALES:
             p = get_prompts(locale)
             for tool in [
                 "TOOL_DESC_INSIGHT_FORGE",
@@ -359,16 +373,22 @@ class TestContent:
                 )
 
     def test_fallback_sections_is_list(self):
-        for locale in ["en", "zh"]:
+        for locale in ALL_LOCALES:
             p = get_prompts(locale)
-            assert isinstance(p.FALLBACK_SECTIONS, list)
+            assert isinstance(p.FALLBACK_SECTIONS, list), (
+                f"{locale}: FALLBACK_SECTIONS is not a list"
+            )
             assert len(p.FALLBACK_SECTIONS) >= 2
             for section in p.FALLBACK_SECTIONS:
-                assert "title" in section
-                assert "description" in section
+                assert "title" in section, (
+                    f"{locale}: FALLBACK_SECTIONS entry missing 'title': {section}"
+                )
+                assert "description" in section, (
+                    f"{locale}: FALLBACK_SECTIONS entry missing 'description': {section}"
+                )
 
     def test_fallback_question_templates_are_lists(self):
-        for locale in ["en", "zh"]:
+        for locale in ALL_LOCALES:
             p = get_prompts(locale)
             assert isinstance(p.SUB_QUESTION_FALLBACK_TEMPLATES, list)
             assert len(p.SUB_QUESTION_FALLBACK_TEMPLATES) >= 2
@@ -384,20 +404,12 @@ class TestContent:
 class TestNonEmpty:
     """Every prompt constant must be non-empty."""
 
-    def test_en_constants_non_empty(self):
-        en_attrs = _get_public_attrs(en_module)
+    @pytest.mark.parametrize("locale", ALL_LOCALES)
+    def test_constants_non_empty(self, locale):
+        attrs = _get_public_attrs(ALL_MODULES[locale])
         empty = [
             name
-            for name, val in en_attrs.items()
+            for name, val in attrs.items()
             if isinstance(val, str) and len(val.strip()) == 0
         ]
-        assert not empty, f"Empty EN constants: {empty}"
-
-    def test_zh_constants_non_empty(self):
-        zh_attrs = _get_public_attrs(zh_module)
-        empty = [
-            name
-            for name, val in zh_attrs.items()
-            if isinstance(val, str) and len(val.strip()) == 0
-        ]
-        assert not empty, f"Empty ZH constants: {empty}"
+        assert not empty, f"Empty {locale.upper()} constants: {empty}"
