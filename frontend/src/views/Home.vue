@@ -1,12 +1,10 @@
 <template>
   <div class="home-container">
     <!-- 顶部导航栏 -->
-    <nav class="navbar">
+    <nav class="navbar navbar-dark">
       <div class="nav-brand">MIROFISH</div>
       <div class="nav-links">
-        <button class="lang-toggle" @click="toggleLocale">
-          {{ {en: '中文', zh: 'VI', vi: 'DE', de: 'EN'}[locale] }}
-        </button>
+        <LangSwitcher />
         <a href="https://github.com/666ghj/MiroFish" target="_blank" class="github-link">
           {{ $t('nav.visitGithub') }} <span class="arrow">↗</span>
         </a>
@@ -213,17 +211,10 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { setLocale } from '../i18n'
 import HistoryDatabase from '../components/HistoryDatabase.vue'
+import LangSwitcher from '../components/LangSwitcher.vue'
 
-const { t, locale } = useI18n()
-
-const localeOrder = ['en', 'zh', 'vi', 'de']
-const toggleLocale = () => {
-  const idx = localeOrder.indexOf(locale.value)
-  const next = localeOrder[(idx + 1) % localeOrder.length]
-  setLocale(next)
-}
+const { t } = useI18n()
 
 const router = useRouter()
 
@@ -366,24 +357,6 @@ const startSimulation = () => {
   display: flex;
   align-items: center;
   gap: 16px;
-}
-
-.lang-toggle {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: var(--white);
-  padding: 4px 12px;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  letter-spacing: 0.5px;
-}
-
-.lang-toggle:hover {
-  border-color: var(--white);
-  background: rgba(255, 255, 255, 0.1);
 }
 
 .github-link {

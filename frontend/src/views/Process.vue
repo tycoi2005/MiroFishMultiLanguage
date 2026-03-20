@@ -1,7 +1,7 @@
 <template>
   <div class="process-page">
     <!-- 顶部导航栏 -->
-    <nav class="navbar">
+    <nav class="navbar navbar-dark">
       <div class="nav-brand" @click="goHome">MIROFISH</div>
       
       <!-- 中间步骤指示器 -->
@@ -13,7 +13,7 @@
       <div class="nav-status">
         <span class="status-dot" :class="statusClass"></span>
         <span class="status-text">{{ statusText }}</span>
-        <button class="lang-toggle" @click="toggleLocale">{{ {en: '中文', zh: 'VI', vi: 'DE', de: 'EN'}[locale] }}</button>
+        <LangSwitcher />
       </div>
     </nav>
 
@@ -416,20 +416,14 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { setLocale } from '../i18n'
 import { generateOntology, getProject, buildGraph, getTaskStatus, getGraphData } from '../api/graph'
+import LangSwitcher from '../components/LangSwitcher.vue'
 import { getPendingUpload, clearPendingUpload } from '../store/pendingUpload'
 import * as d3 from 'd3'
 
 const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
-const localeOrder = ['en', 'zh', 'vi', 'de']
-const toggleLocale = () => {
-  const idx = localeOrder.indexOf(locale.value)
-  const next = localeOrder[(idx + 1) % localeOrder.length]
-  setLocale(next)
-}
 
 // 当前项目ID（可能从'new'变为实际ID）
 const currentProjectId = ref(route.params.projectId)
@@ -1210,22 +1204,7 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-.lang-toggle {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #fff;
-  padding: 3px 10px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  margin-left: 8px;
-}
-.lang-toggle:hover {
-  border-color: #fff;
-  background: rgba(255, 255, 255, 0.1);
-}
+
 
 /* 主内容区 */
 .main-content {

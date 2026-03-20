@@ -30,7 +30,7 @@
           <span class="dot"></span>
           {{ statusText }}
         </span>
-        <button class="lang-toggle" @click="toggleLocale">{{ {en: '中文', zh: 'VI', vi: 'DE', de: 'EN'}[locale] }}</button>
+        <LangSwitcher />
       </div>
     </header>
 
@@ -79,8 +79,8 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { setLocale } from '../i18n'
 import GraphPanel from '../components/GraphPanel.vue'
+import LangSwitcher from '../components/LangSwitcher.vue'
 import Step1GraphBuild from '../components/Step1GraphBuild.vue'
 import Step2EnvSetup from '../components/Step2EnvSetup.vue'
 import { generateOntology, getProject, buildGraph, getTaskStatus, getGraphData } from '../api/graph'
@@ -88,13 +88,7 @@ import { getPendingUpload, clearPendingUpload } from '../store/pendingUpload'
 
 const route = useRoute()
 const router = useRouter()
-const { t, locale } = useI18n()
-const localeOrder = ['en', 'zh', 'vi', 'de']
-const toggleLocale = () => {
-  const idx = localeOrder.indexOf(locale.value)
-  const next = localeOrder[(idx + 1) % localeOrder.length]
-  setLocale(next)
-}
+const { t } = useI18n()
 
 // Layout State
 const viewMode = ref('split') // graph | split | workbench
@@ -548,20 +542,5 @@ onUnmounted(() => {
   border-right: 1px solid #EAEAEA;
 }
 
-.lang-toggle {
-  background: transparent;
-  border: 1px solid #E0E0E0;
-  color: #666;
-  padding: 3px 10px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  border-radius: 3px;
-}
-.lang-toggle:hover {
-  border-color: #000;
-  color: #000;
-}
+
 </style>

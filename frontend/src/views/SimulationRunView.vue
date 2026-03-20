@@ -30,7 +30,7 @@
           <span class="dot"></span>
           {{ statusText }}
         </span>
-        <button class="lang-toggle" @click="toggleLocale">{{ {en: '中文', zh: 'VI', vi: 'DE', de: 'EN'}[locale] }}</button>
+        <LangSwitcher />
       </div>
     </header>
 
@@ -71,21 +71,15 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { setLocale } from '../i18n'
 import GraphPanel from '../components/GraphPanel.vue'
+import LangSwitcher from '../components/LangSwitcher.vue'
 import Step3Simulation from '../components/Step3Simulation.vue'
 import { getProject, getGraphData } from '../api/graph'
 import { getSimulation, getSimulationConfig, stopSimulation, closeSimulationEnv, getEnvStatus } from '../api/simulation'
 
 const route = useRoute()
 const router = useRouter()
-const { t, locale } = useI18n()
-const localeOrder = ['en', 'zh', 'vi', 'de']
-const toggleLocale = () => {
-  const idx = localeOrder.indexOf(locale.value)
-  const next = localeOrder[(idx + 1) % localeOrder.length]
-  setLocale(next)
-}
+const { t } = useI18n()
 
 // Props
 const props = defineProps({
@@ -454,21 +448,6 @@ onUnmounted(() => {
   border-right: 1px solid #EAEAEA;
 }
 
-.lang-toggle {
-  background: transparent;
-  border: 1px solid #E0E0E0;
-  color: #666;
-  padding: 3px 10px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  border-radius: 3px;
-}
-.lang-toggle:hover {
-  border-color: #000;
-  color: #000;
-}
+
 </style>
 
