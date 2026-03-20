@@ -15,21 +15,22 @@
             :class="{ active: viewMode === mode }"
             @click="viewMode = mode"
           >
-            {{ { graph: '图谱', split: '双栏', workbench: '工作台' }[mode] }}
+            {{ { graph: $t('nav.viewSwitcher.graph'), split: $t('nav.viewSwitcher.split'), workbench: $t('nav.viewSwitcher.workbench') }[mode] }}
           </button>
         </div>
       </div>
 
       <div class="header-right">
         <div class="workflow-step">
-          <span class="step-num">Step 2/5</span>
-          <span class="step-name">环境搭建</span>
+          <span class="step-num">{{ $t('simulation.stepNum') }}</span>
+          <span class="step-name">{{ $t('simulation.stepName') }}</span>
         </div>
         <div class="step-divider"></div>
         <span class="status-indicator" :class="statusClass">
           <span class="dot"></span>
           {{ statusText }}
         </span>
+        <button class="lang-toggle" @click="toggleLocale">{{ locale === 'en' ? '中文' : 'EN' }}</button>
       </div>
     </header>
 
@@ -66,6 +67,8 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { setLocale } from '../i18n'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step2EnvSetup from '../components/Step2EnvSetup.vue'
 import { getProject, getGraphData } from '../api/graph'
@@ -73,6 +76,8 @@ import { getSimulation, stopSimulation, getEnvStatus, closeSimulationEnv } from 
 
 const route = useRoute()
 const router = useRouter()
+const { t, locale } = useI18n()
+const toggleLocale = () => setLocale(locale.value === 'en' ? 'zh' : 'en')
 
 // Props
 const props = defineProps({
@@ -429,6 +434,24 @@ onMounted(async () => {
 
 .panel-wrapper.left {
   border-right: 1px solid #EAEAEA;
+}
+
+.lang-toggle {
+  background: transparent;
+  border: 1px solid #E0E0E0;
+  color: #666;
+  padding: 3px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 3px;
+}
+
+.lang-toggle:hover {
+  border-color: #000;
+  color: #000;
 }
 </style>
 
