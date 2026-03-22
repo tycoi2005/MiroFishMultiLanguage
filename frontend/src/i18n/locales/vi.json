@@ -42,6 +42,7 @@
   },
   "nav": {
     "visitGithub": "Truy cập GitHub của chúng tôi",
+    "checkApi": "Kiểm tra API",
     "viewSwitcher": {
       "graph": "Đồ thị",
       "split": "Chia đôi",
@@ -402,6 +403,27 @@
   "interaction": {
     "stepName": "Tương tác Sâu",
     "stepNum": "Step 5/5"
+  },
+  "health": {
+    "title": "Kiểm tra Sức khỏe API",
+    "subtitle": "Kiểm tra trạng thái và giới hạn tốc độ của các API đã kết nối",
+    "checking": "Đang kiểm tra...",
+    "refreshBtn": "Làm mới",
+    "overall": "Tổng thể",
+    "healthy": "Bình thường",
+    "degraded": "Suy giảm",
+    "rateLimited": "Giới hạn Tốc độ",
+    "authError": "Lỗi Xác thực",
+    "connError": "Lỗi Kết nối",
+    "notConfigured": "Chưa Cấu hình",
+    "configured": "Đã Cấu hình",
+    "error": "Lỗi",
+    "baseUrl": "URL Cơ sở",
+    "model": "Mô hình",
+    "latency": "Độ trễ",
+    "rateLimits": "Giới hạn Tốc độ",
+    "configTitle": "Cấu hình",
+    "retryConfig": "Tự động Thử lại"
   },
   "logs": {
     "step2Init": "Step2 Khởi tạo thiết lập môi trường",

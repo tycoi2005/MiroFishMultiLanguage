@@ -42,6 +42,7 @@
   },
   "nav": {
     "visitGithub": "访问我们的Github主页",
+    "checkApi": "API 检测",
     "viewSwitcher": {
       "graph": "图谱",
       "split": "双栏",
@@ -402,6 +403,27 @@
   "interaction": {
     "stepName": "深度互动",
     "stepNum": "Step 5/5"
+  },
+  "health": {
+    "title": "API 健康检查",
+    "subtitle": "检查已连接 API 的状态与速率限制",
+    "checking": "检测中...",
+    "refreshBtn": "刷新",
+    "overall": "总体状态",
+    "healthy": "正常",
+    "degraded": "异常",
+    "rateLimited": "速率限制中",
+    "authError": "认证错误",
+    "connError": "连接错误",
+    "notConfigured": "未配置",
+    "configured": "已配置",
+    "error": "错误",
+    "baseUrl": "基础 URL",
+    "model": "模型",
+    "latency": "延迟",
+    "rateLimits": "速率限制",
+    "configTitle": "配置信息",
+    "retryConfig": "自动重试"
   },
   "logs": {
     "step2Init": "Step2 环境搭建初始化",

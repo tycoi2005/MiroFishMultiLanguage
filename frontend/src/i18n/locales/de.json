@@ -42,6 +42,7 @@
   },
   "nav": {
     "visitGithub": "Besuchen Sie unser GitHub",
+    "checkApi": "API prüfen",
     "viewSwitcher": {
       "graph": "Graph",
       "split": "Geteilt",
@@ -402,6 +403,27 @@
   "interaction": {
     "stepName": "Tiefgehende Interaktion",
     "stepNum": "Step 5/5"
+  },
+  "health": {
+    "title": "API-Zustandsprüfung",
+    "subtitle": "Status und Ratenlimits der verbundenen APIs überprüfen",
+    "checking": "Wird geprüft...",
+    "refreshBtn": "Aktualisieren",
+    "overall": "Gesamtstatus",
+    "healthy": "Funktionsfähig",
+    "degraded": "Beeinträchtigt",
+    "rateLimited": "Ratenlimit erreicht",
+    "authError": "Authentifizierungsfehler",
+    "connError": "Verbindungsfehler",
+    "notConfigured": "Nicht konfiguriert",
+    "configured": "Konfiguriert",
+    "error": "Fehler",
+    "baseUrl": "Basis-URL",
+    "model": "Modell",
+    "latency": "Latenz",
+    "rateLimits": "Ratenlimits",
+    "configTitle": "Konfiguration",
+    "retryConfig": "Automatische Wiederholung"
   },
   "logs": {
     "step2Init": "Step2 Umgebungseinrichtung Initialisierung",

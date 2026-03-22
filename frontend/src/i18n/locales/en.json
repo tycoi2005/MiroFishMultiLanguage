@@ -42,6 +42,7 @@
   },
   "nav": {
     "visitGithub": "Visit our GitHub",
+    "checkApi": "Check API",
     "viewSwitcher": {
       "graph": "Graph",
       "split": "Split",
@@ -402,6 +403,27 @@
   "interaction": {
     "stepName": "Deep Interaction",
     "stepNum": "Step 5/5"
+  },
+  "health": {
+    "title": "API Health Check",
+    "subtitle": "Check the status and rate limits of connected APIs",
+    "checking": "Checking...",
+    "refreshBtn": "Refresh",
+    "overall": "Overall",
+    "healthy": "Healthy",
+    "degraded": "Degraded",
+    "rateLimited": "Rate Limited",
+    "authError": "Auth Error",
+    "connError": "Connection Error",
+    "notConfigured": "Not Configured",
+    "configured": "Configured",
+    "error": "Error",
+    "baseUrl": "Base URL",
+    "model": "Model",
+    "latency": "Latency",
+    "rateLimits": "Rate Limits",
+    "configTitle": "Configuration",
+    "retryConfig": "Auto-Retry"
   },
   "logs": {
     "step2Init": "Step2 Environment Setup initialization",

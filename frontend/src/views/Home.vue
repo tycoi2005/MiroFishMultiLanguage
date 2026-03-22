@@ -5,6 +5,9 @@
       <div class="nav-brand">MIROFISH</div>
       <div class="nav-links">
         <LangSwitcher />
+        <router-link to="/health" class="health-link">
+          {{ $t('nav.checkApi') }}
+        </router-link>
         <a href="https://github.com/666ghj/MiroFish" target="_blank" class="github-link">
           {{ $t('nav.visitGithub') }} <span class="arrow">↗</span>
         </a>
@@ -404,6 +407,22 @@ const startSimulation = () => {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.health-link {
+  color: inherit;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: opacity 0.2s;
+  opacity: 0.8;
+}
+.health-link:hover {
+  opacity: 1;
 }
 
 .github-link {
