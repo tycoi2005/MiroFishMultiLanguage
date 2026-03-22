@@ -372,6 +372,26 @@
             </div>
           </TransitionGroup>
 
+          <!-- Rate Limit Pause Banner -->
+          <Transition name="dropdown">
+            <div v-if="rateLimitInfo.active" class="rate-limit-banner">
+              <div class="rate-limit-icon">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
+              <div class="rate-limit-text">
+                <span class="rate-limit-title">Rate Limited — Paused</span>
+                <span class="rate-limit-detail">
+                  Waiting {{ rateLimitInfo.waitMinutes }} min before retry 
+                  (attempt {{ rateLimitInfo.attempt }}/{{ rateLimitInfo.maxRetries }})
+                </span>
+              </div>
+              <div class="rate-limit-pulse"></div>
+            </div>
+          </Transition>
+
           <!-- Empty State -->
           <div v-if="agentLogs.length === 0 && !isComplete" class="workflow-empty">
             <div class="empty-pulse"></div>
@@ -434,6 +454,7 @@ const expandedLogs = ref(new Set())
 const collapsedSections = ref(new Set())
 const isComplete = ref(false)
 const isFailed = ref(false)
+const rateLimitInfo = ref({ active: false })
 const errorMessage = ref('')
 const startTime = ref(null)
 const leftPanel = ref(null)
@@ -1724,6 +1745,7 @@ const statusClass = computed(() => {
 const statusText = computed(() => {
   if (isFailed.value) return 'Error'
   if (isComplete.value) return 'Completed'
+  if (rateLimitInfo.value.active) return `Paused (${rateLimitInfo.value.waitMinutes}m)`
   if (agentLogs.value.length > 0) return 'Generating...'
   return 'Waiting'
 })
@@ -2101,7 +2123,31 @@ const fetchAgentLog = async () => {
             // 滚动逻辑统一在循环结束后的 nextTick 中处理
           }
 
-          // 处理错误：后端报告生成失败时发送 action='error'
+          // Handle rate limit: backend is pausing and will retry
+          if (log.action === 'rate_limited') {
+            const details = log.details || {}
+            const waitMin = Math.round((details.wait_seconds || 60) / 60)
+            const attempt = details.attempt || 1
+            const maxRetries = details.max_retries || 3
+            rateLimitInfo.value = {
+              active: true,
+              waitMinutes: waitMin,
+              attempt,
+              maxRetries,
+              message: details.message || `Rate limited. Waiting ${waitMin} min...`,
+              startedAt: Date.now(),
+            }
+          }
+
+          // Clear rate limit state when generation resumes (next LLM response / tool call / section done)
+          if (log.action === 'llm_response' || log.action === 'tool_call' || 
+              log.action === 'section_complete' || log.action === 'section_start') {
+            if (rateLimitInfo.value.active) {
+              rateLimitInfo.value = { active: false }
+            }
+          }
+
+          // Handle error: backend reports generation failure with action='error'
           if (log.action === 'error') {
             console.error('Report generation error:', log.details?.error || log.details?.message)
             errorMessage.value = log.details?.error || log.details?.message || '报告生成失败'
@@ -2254,6 +2300,7 @@ watch(() => props.reportId, (newId) => {
     isComplete.value = false
     isFailed.value = false
     errorMessage.value = ''
+    rateLimitInfo.value = { active: false }
     startTime.value = null
     lastLogReceivedAt = Date.now()
     
@@ -2677,6 +2724,60 @@ watch(() => props.reportId, (newId) => {
 }
 
 /* Error Placeholder */
+/* Rate Limit Banner */
+.rate-limit-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin: 8px 12px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 8px;
+  color: #B45309;
+  position: relative;
+  overflow: hidden;
+}
+
+.rate-limit-icon {
+  flex-shrink: 0;
+  color: #F59E0B;
+}
+
+.rate-limit-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.rate-limit-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #B45309;
+}
+
+.rate-limit-detail {
+  font-size: 11px;
+  color: #92400E;
+  opacity: 0.8;
+}
+
+.rate-limit-pulse {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #F59E0B, transparent);
+  animation: rateLimitPulse 2s ease-in-out infinite;
+}
+
+@keyframes rateLimitPulse {
+  0%, 100% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+}
+
 .error-placeholder {
   flex: 1;
   display: flex;

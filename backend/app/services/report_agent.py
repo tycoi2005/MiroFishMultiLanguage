@@ -520,22 +520,43 @@ class ReportAgent:
         self.story_format = story_format
 
         self.llm = llm_client or LLMClient()
+        self.llm.on_rate_limit = self._on_rate_limit
         self.zep_tools = zep_tools or ZepToolsService()
 
-        # 工具定义
+        # Tool definitions
         self.tools = self._define_tools()
 
-        # 日志记录器（在 generate_report 中初始化）
+        # Loggers (initialized in generate_report)
         self.report_logger: Optional[ReportLogger] = None
-        # 控制台日志记录器（在 generate_report 中初始化）
         self.console_logger: Optional[ReportConsoleLogger] = None
 
         logger.info(
-            f"ReportAgent 初始化完成: graph_id={graph_id}, simulation_id={simulation_id}"
+            f"ReportAgent initialized: graph_id={graph_id}, simulation_id={simulation_id}"
         )
 
+    def _on_rate_limit(
+        self, wait_seconds: int, attempt: int, max_retries: int, error_msg: str
+    ):
+        """Callback invoked when a 429 rate limit is hit. Logs to agent log for UI display."""
+        wait_minutes = round(wait_seconds / 60, 1)
+        logger.warning(
+            f"Rate limited (429). Pausing {wait_minutes} min. "
+            f"Attempt {attempt}/{max_retries}."
+        )
+        if self.report_logger:
+            self.report_logger.log(
+                action="rate_limited",
+                stage="generating",
+                details={
+                    "message": f"Rate limited. Waiting {wait_minutes} min before retry ({attempt}/{max_retries})...",
+                    "wait_seconds": wait_seconds,
+                    "attempt": attempt,
+                    "max_retries": max_retries,
+                },
+            )
+
     def _define_tools(self) -> Dict[str, Dict[str, Any]]:
-        """定义可用工具"""
+        """Define available tools."""
         p = get_prompts(self.locale)
         return {
             "insight_forge": {
