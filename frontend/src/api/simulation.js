@@ -13,7 +13,8 @@ export const createSimulation = (data) => {
  * @param {Object} data - { simulation_id, entity_types?, use_llm_for_profiles?, parallel_profile_count?, force_regenerate? }
  */
 export const prepareSimulation = (data) => {
-  return requestWithRetry(() => service.post('/api/simulation/prepare', data), 3, 1000)
+  const locale = localStorage.getItem('mirofish-locale') || 'en'
+  return requestWithRetry(() => service.post('/api/simulation/prepare', { ...data, locale }), 3, 1000)
 }
 
 /**

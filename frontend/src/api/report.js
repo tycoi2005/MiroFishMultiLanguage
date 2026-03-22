@@ -5,7 +5,8 @@ import service, { requestWithRetry } from './index'
  * @param {Object} data - { simulation_id, force_regenerate? }
  */
 export const generateReport = (data) => {
-  return requestWithRetry(() => service.post('/api/report/generate', data), 3, 1000)
+  const locale = localStorage.getItem('mirofish-locale') || 'en'
+  return requestWithRetry(() => service.post('/api/report/generate', { ...data, locale }), 3, 1000)
 }
 
 /**
@@ -47,5 +48,6 @@ export const getReport = (reportId) => {
  * @param {Object} data - { simulation_id, message, chat_history? }
  */
 export const chatWithReport = (data) => {
-  return requestWithRetry(() => service.post('/api/report/chat', data), 3, 1000)
+  const locale = localStorage.getItem('mirofish-locale') || 'en'
+  return requestWithRetry(() => service.post('/api/report/chat', { ...data, locale }), 3, 1000)
 }

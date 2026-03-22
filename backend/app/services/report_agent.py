@@ -596,7 +596,7 @@ class ReportAgent:
         Returns:
             工具执行结果（文本格式）
         """
-        logger.info(f"执行工具: {tool_name}, 参数: {parameters}")
+        logger.info(f"Executing tool: {tool_name}, params: {parameters}")
 
         try:
             if tool_name == "insight_forge":
@@ -655,7 +655,7 @@ class ReportAgent:
 
             elif tool_name == "search_graph":
                 # 重定向到 quick_search
-                logger.info("search_graph 已重定向到 quick_search")
+                logger.info("search_graph redirected to quick_search")
                 return self._execute_tool("quick_search", parameters, report_context)
 
             elif tool_name == "get_graph_statistics":
@@ -671,7 +671,7 @@ class ReportAgent:
 
             elif tool_name == "get_simulation_context":
                 # 重定向到 insight_forge，因为它更强大
-                logger.info("get_simulation_context 已重定向到 insight_forge")
+                logger.info("get_simulation_context redirected to insight_forge")
                 query = parameters.get("query", self.simulation_requirement)
                 return self._execute_tool(
                     "insight_forge", {"query": query}, report_context
@@ -693,7 +693,7 @@ class ReportAgent:
                 )
 
         except Exception as e:
-            logger.error(f"工具执行失败: {tool_name}, 错误: {str(e)}")
+            logger.error(f"Tool execution failed: {tool_name}, error: {str(e)}")
             return (
                 f"Tool execution failed: {str(e)}"
                 if self.locale != "zh"
@@ -895,7 +895,7 @@ class ReportAgent:
             return outline
 
         except Exception as e:
-            logger.error(f"大纲规划失败: {str(e)}")
+            logger.error(f"Outline planning failed: {str(e)}")
             # 返回默认大纲（3个章节，作为fallback）
             fallback_sections = []
             for item in p.FALLBACK_SECTIONS:
@@ -935,7 +935,7 @@ class ReportAgent:
         Returns:
             章节内容（Markdown格式）
         """
-        logger.info(f"ReACT生成章节: {section.title}")
+        logger.info(f"ReACT generating section: {section.title}")
 
         p = get_prompts(self.locale)
 
@@ -1037,7 +1037,7 @@ class ReportAgent:
             # 检查 LLM 返回是否为 None（API 异常或内容为空）
             if response is None:
                 logger.warning(
-                    f"章节 {section.title} 第 {iteration + 1} 次迭代: LLM 返回 None"
+                    f"Section {section.title} iteration {iteration + 1}: LLM returned None"
                 )
                 # 如果还有迭代次数，添加消息并重试
                 if iteration < max_iterations - 1:
@@ -1061,7 +1061,7 @@ class ReportAgent:
                 # 最后一次迭代也返回 None，跳出循环进入强制收尾
                 break
 
-            logger.debug(f"LLM响应: {response[:200]}...")
+            logger.debug(f"LLM response: {response[:200]}...")
 
             # 解析一次，复用结果
             tool_calls = self._parse_tool_calls(response)
@@ -1072,8 +1072,8 @@ class ReportAgent:
             if has_tool_calls and has_final_answer:
                 conflict_retries += 1
                 logger.warning(
-                    f"章节 {section.title} 第 {iteration + 1} 轮: "
-                    f"LLM 同时输出工具调用和 Final Answer（第 {conflict_retries} 次冲突）"
+                    f"Section {section.title} iteration {iteration + 1}: "
+                    f"LLM output both tool call and Final Answer (conflict #{conflict_retries})"
                 )
 
                 if conflict_retries <= 2:
@@ -1089,8 +1089,8 @@ class ReportAgent:
                 else:
                     # 第三次：降级处理，截断到第一个工具调用，强制执行
                     logger.warning(
-                        f"章节 {section.title}: 连续 {conflict_retries} 次冲突，"
-                        "降级为截断执行第一个工具调用"
+                        f"Section {section.title}: {conflict_retries} consecutive conflicts, "
+                        "falling back to truncating and executing first tool call"
                     )
                     first_tool_end = response.find("</tool_call>")
                     if first_tool_end != -1:
@@ -1141,7 +1141,7 @@ class ReportAgent:
                 # 正常结束
                 final_answer = response.split("Final Answer:")[-1].strip()
                 logger.info(
-                    f"章节 {section.title} 生成完成（工具调用: {tool_calls_count}次）"
+                    f"Section {section.title} generation complete (tool calls: {tool_calls_count})"
                 )
 
                 if self.report_logger:
@@ -1173,7 +1173,7 @@ class ReportAgent:
                 call = tool_calls[0]
                 if len(tool_calls) > 1:
                     logger.info(
-                        f"LLM 尝试调用 {len(tool_calls)} 个工具，只执行第一个: {call['name']}"
+                        f"LLM attempted {len(tool_calls)} tool calls, executing only the first: {call['name']}"
                     )
 
                 if self.report_logger:
@@ -1206,7 +1206,7 @@ class ReportAgent:
                 # 截断过长的工具结果，防止超出 LLM 上下文窗口或 TPM 限制
                 if len(result) > self.MAX_TOOL_RESULT_CHARS:
                     logger.info(
-                        f"工具结果已截断: {len(result)} -> {self.MAX_TOOL_RESULT_CHARS} 字符"
+                        f"Tool result truncated: {len(result)} -> {self.MAX_TOOL_RESULT_CHARS} chars"
                     )
                     truncation_note = (
                         f"\n\n... [Result truncated, original length {len(result)} chars, kept first {self.MAX_TOOL_RESULT_CHARS} chars]"
@@ -1270,7 +1270,7 @@ class ReportAgent:
             # 工具调用已足够，LLM 输出了内容但没带 "Final Answer:" 前缀
             # 直接将这段内容作为最终答案，不再空转
             logger.info(
-                f"章节 {section.title} 未检测到 'Final Answer:' 前缀，直接采纳LLM输出作为最终内容（工具调用: {tool_calls_count}次）"
+                f"Section {section.title}: no 'Final Answer:' prefix detected, adopting LLM output as final content (tool calls: {tool_calls_count})"
             )
             final_answer = response.strip()
 
@@ -1284,7 +1284,9 @@ class ReportAgent:
             return final_answer
 
         # 达到最大迭代次数，强制生成内容
-        logger.warning(f"章节 {section.title} 达到最大迭代次数，强制生成")
+        logger.warning(
+            f"Section {section.title} reached max iterations, forcing generation"
+        )
         messages.append({"role": "user", "content": p.REACT_FORCE_FINAL_MSG})
 
         response = self.llm.chat(messages=messages, temperature=0.5, max_tokens=4096)
@@ -1292,7 +1294,7 @@ class ReportAgent:
         # 检查强制收尾时 LLM 返回是否为 None
         if response is None:
             logger.error(
-                f"章节 {section.title} 强制收尾时 LLM 返回 None，使用默认错误提示"
+                f"Section {section.title} forced finalization: LLM returned None, using default error message"
             )
             final_answer = (
                 "(Section generation failed: LLM returned empty response, please retry later)"
@@ -1423,7 +1425,7 @@ class ReportAgent:
             )
             ReportManager.save_report(report)
 
-            logger.info(f"大纲已保存到文件: {report_id}/outline.json")
+            logger.info(f"Outline saved to file: {report_id}/outline.json")
 
             # 阶段2: 逐章节生成（分章节保存）
             report.status = ReportStatus.GENERATING
@@ -1471,7 +1473,9 @@ class ReportAgent:
                         section_index=section_num,
                     )
                 except Exception as section_err:
-                    logger.error(f"章节 {section.title} 生成失败: {str(section_err)}")
+                    logger.error(
+                        f"Section {section.title} generation failed: {str(section_err)}"
+                    )
                     section_content = f"[Section generation failed: {str(section_err)}. Please retry later.]"
                     if self.report_logger:
                         self.report_logger.log_error(
@@ -1495,7 +1499,7 @@ class ReportAgent:
                         full_content=full_section_content.strip(),
                     )
 
-                logger.info(f"章节已保存: {report_id}/section_{section_num:02d}.md")
+                logger.info(f"Section saved: {report_id}/section_{section_num:02d}.md")
 
                 # 更新进度
                 ReportManager.update_progress(
@@ -1614,7 +1618,7 @@ class ReportAgent:
                 "sources": [信息来源]
             }
         """
-        logger.info(f"Report Agent对话: {message[:50]}...")
+        logger.info(f"Report Agent chat: {message[:50]}...")
 
         chat_history = chat_history or []
 
@@ -1632,7 +1636,7 @@ class ReportAgent:
                         else "\n\n... [报告内容已截断] ..."
                     )
         except Exception as e:
-            logger.warning(f"获取报告内容失败: {e}")
+            logger.warning(f"Failed to fetch report content: {e}")
 
         p = get_prompts(self.locale)
 
@@ -1931,7 +1935,7 @@ class ReportManager:
         with open(cls._get_outline_path(report_id), "w", encoding="utf-8") as f:
             json.dump(outline.to_dict(), f, ensure_ascii=False, indent=2)
 
-        logger.info(f"大纲已保存: {report_id}")
+        logger.info(f"Outline saved: {report_id}")
 
     @classmethod
     def save_section(
@@ -1964,7 +1968,7 @@ class ReportManager:
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(md_content)
 
-        logger.info(f"章节已保存: {report_id}/{file_suffix}")
+        logger.info(f"Section saved: {report_id}/{file_suffix}")
         return file_path
 
     @classmethod
@@ -2137,7 +2141,7 @@ class ReportManager:
         with open(full_path, "w", encoding="utf-8") as f:
             f.write(md_content)
 
-        logger.info(f"完整报告已组装: {report_id}")
+        logger.info(f"Full report assembled: {report_id}")
         return md_content
 
     @classmethod
@@ -2286,7 +2290,7 @@ class ReportManager:
             ) as f:
                 f.write(report.markdown_content)
 
-        logger.info(f"报告已保存: {report.report_id}")
+        logger.info(f"Report saved: {report.report_id}")
 
     @classmethod
     def get_report(cls, report_id: str) -> Optional[Report]:
@@ -2400,7 +2404,7 @@ class ReportManager:
         # 新格式：删除整个文件夹
         if os.path.exists(folder_path) and os.path.isdir(folder_path):
             shutil.rmtree(folder_path)
-            logger.info(f"报告文件夹已删除: {report_id}")
+            logger.info(f"Report folder deleted: {report_id}")
             return True
 
         # 兼容旧格式：删除单独的文件

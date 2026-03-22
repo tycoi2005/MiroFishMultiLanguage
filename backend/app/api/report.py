@@ -61,6 +61,7 @@ def generate_report():
             ), 400
 
         force_regenerate = data.get("force_regenerate", False)
+        locale = data.get("locale", "en")
 
         # 获取模拟信息
         manager = SimulationManager()
@@ -161,6 +162,7 @@ def generate_report():
                     simulation_requirement=simulation_requirement,
                     mode=mode,
                     story_format=story_format,
+                    locale=locale,
                 )
 
                 # 进度回调
@@ -508,6 +510,7 @@ def chat_with_report_agent():
         simulation_id = data.get("simulation_id")
         message = data.get("message")
         chat_history = data.get("chat_history", [])
+        locale = data.get("locale", "en")
 
         if not simulation_id:
             return jsonify(
@@ -572,6 +575,7 @@ def chat_with_report_agent():
             simulation_requirement=simulation_requirement,
             mode=chat_mode,
             story_format=chat_story_format,
+            locale=locale,
         )
 
         result = agent.chat(message=message, chat_history=chat_history)
