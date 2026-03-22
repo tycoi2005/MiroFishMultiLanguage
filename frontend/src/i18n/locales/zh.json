@@ -78,7 +78,12 @@
       "reportGen": "报告生成",
       "reportGenDesc": "ReportAgent拥有丰富的工具集与模拟后环境进行深度交互",
       "interaction": "深度互动",
-      "interactionDesc": "与模拟世界中的任意一位进行对话 & 与ReportAgent进行对话"
+      "interactionDesc": "与模拟世界中的任意一位进行对话 & 与ReportAgent进行对话",
+      "worldBuild": "世界构建",
+      "characterSetup": "角色设定",
+      "runNarrative": "运行叙事",
+      "storyGen": "故事生成",
+      "characterChat": "角色对话"
     },
     "console": {
       "seedLabel": "01 / 现实种子",
@@ -90,8 +95,15 @@
       "promptPlaceholder": "// 用自然语言输入模拟或预测需求（例.武大若发布撤销肖某处分的公告，会引发什么舆情走向）",
       "engineBadge": "引擎: MiroFish-V1.0",
       "startEngine": "启动引擎",
-      "initializing": "初始化中..."
-    }
+      "initializing": "初始化中...",
+      "storyPromptPlaceholder": "// 描述故事背景、角色和世界观"
+    },
+    "modePrediction": "预测模式",
+    "modePredictionDesc": "分析与预测未来趋势",
+    "modeStory": "故事模式",
+    "modeStoryDesc": "生成创意叙事",
+    "formatNovel": "小说",
+    "formatScreenplay": "剧本"
   },
   "process": {
     "stepBadge": "STEP 01",

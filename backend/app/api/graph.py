@@ -163,6 +163,9 @@ def generate_ontology():
         project_name = request.form.get("project_name", "Unnamed Project")
         additional_context = request.form.get("additional_context", "")
 
+        mode = request.form.get("mode", "prediction")
+        story_format = request.form.get("story_format", None)
+
         logger.debug(f"项目名称: {project_name}")
         logger.debug(f"模拟需求: {simulation_requirement[:100]}...")
 
@@ -187,6 +190,8 @@ def generate_ontology():
         # 创建项目
         project = ProjectManager.create_project(name=project_name)
         project.simulation_requirement = simulation_requirement
+        project.mode = mode
+        project.story_format = story_format
         logger.info(f"创建项目: {project.project_id}")
 
         # 保存文件并提取文本

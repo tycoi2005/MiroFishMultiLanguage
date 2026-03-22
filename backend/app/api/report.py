@@ -123,6 +123,11 @@ def generate_report():
                 }
             ), 400
 
+        mode = project.mode if hasattr(project, "mode") else "prediction"
+        story_format = (
+            project.story_format if hasattr(project, "story_format") else None
+        )
+
         # 提前生成 report_id，以便立即返回给前端
         import uuid
 
@@ -154,6 +159,8 @@ def generate_report():
                     graph_id=graph_id,
                     simulation_id=simulation_id,
                     simulation_requirement=simulation_requirement,
+                    mode=mode,
+                    story_format=story_format,
                 )
 
                 # 进度回调
@@ -553,12 +560,18 @@ def chat_with_report_agent():
             ), 400
 
         simulation_requirement = project.simulation_requirement or ""
+        chat_mode = project.mode if hasattr(project, "mode") else "prediction"
+        chat_story_format = (
+            project.story_format if hasattr(project, "story_format") else None
+        )
 
         # 创建Agent并进行对话
         agent = ReportAgent(
             graph_id=graph_id,
             simulation_id=simulation_id,
             simulation_requirement=simulation_requirement,
+            mode=chat_mode,
+            story_format=chat_story_format,
         )
 
         result = agent.chat(message=message, chat_history=chat_history)

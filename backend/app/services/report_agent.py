@@ -496,6 +496,8 @@ class ReportAgent:
         llm_client: Optional[LLMClient] = None,
         zep_tools: Optional[ZepToolsService] = None,
         locale: str = "en",
+        mode: str = "prediction",
+        story_format: str = None,
     ):
         """
         初始化Report Agent
@@ -507,11 +509,15 @@ class ReportAgent:
             llm_client: LLM客户端（可选）
             zep_tools: Zep工具服务（可选）
             locale: 语言区域 ("en" 或 "zh")
+            mode: 运行模式 ("prediction" 或 "story")
+            story_format: 故事格式 ("novel" 或 "screenplay"，仅当 mode="story" 时使用)
         """
         self.graph_id = graph_id
         self.simulation_id = simulation_id
         self.simulation_requirement = simulation_requirement
         self.locale = locale
+        self.mode = mode
+        self.story_format = story_format
 
         self.llm = llm_client or LLMClient()
         self.zep_tools = zep_tools or ZepToolsService()
@@ -816,19 +822,35 @@ class ReportAgent:
 
         p = get_prompts(self.locale)
 
-        system_prompt = p.PLAN_SYSTEM_PROMPT
-        user_prompt = p.PLAN_USER_PROMPT_TEMPLATE.format(
-            simulation_requirement=self.simulation_requirement,
-            total_nodes=context.get("graph_statistics", {}).get("total_nodes", 0),
-            total_edges=context.get("graph_statistics", {}).get("total_edges", 0),
-            entity_types=list(
-                context.get("graph_statistics", {}).get("entity_types", {}).keys()
-            ),
-            total_entities=context.get("total_entities", 0),
-            related_facts_json=json.dumps(
-                context.get("related_facts", [])[:10], ensure_ascii=False, indent=2
-            ),
-        )
+        if self.mode == "story":
+            system_prompt = p.STORY_PLAN_SYSTEM_PROMPT
+            user_prompt = p.STORY_PLAN_USER_PROMPT_TEMPLATE.format(
+                simulation_requirement=self.simulation_requirement,
+                total_nodes=context.get("graph_statistics", {}).get("total_nodes", 0),
+                total_edges=context.get("graph_statistics", {}).get("total_edges", 0),
+                entity_types=list(
+                    context.get("graph_statistics", {}).get("entity_types", {}).keys()
+                ),
+                total_entities=context.get("total_entities", 0),
+                related_facts_json=json.dumps(
+                    context.get("related_facts", [])[:10], ensure_ascii=False, indent=2
+                ),
+                story_format=self.story_format or "novel",
+            )
+        else:
+            system_prompt = p.PLAN_SYSTEM_PROMPT
+            user_prompt = p.PLAN_USER_PROMPT_TEMPLATE.format(
+                simulation_requirement=self.simulation_requirement,
+                total_nodes=context.get("graph_statistics", {}).get("total_nodes", 0),
+                total_edges=context.get("graph_statistics", {}).get("total_edges", 0),
+                entity_types=list(
+                    context.get("graph_statistics", {}).get("entity_types", {}).keys()
+                ),
+                total_entities=context.get("total_entities", 0),
+                related_facts_json=json.dumps(
+                    context.get("related_facts", [])[:10], ensure_ascii=False, indent=2
+                ),
+            )
 
         try:
             response = self.llm.chat_json(
@@ -921,13 +943,27 @@ class ReportAgent:
         if self.report_logger:
             self.report_logger.log_section_start(section.title, section_index)
 
-        system_prompt = p.SECTION_SYSTEM_PROMPT_TEMPLATE.format(
-            report_title=outline.title,
-            report_summary=outline.summary,
-            simulation_requirement=self.simulation_requirement,
-            section_title=section.title,
-            tools_description=self._get_tools_description(),
-        )
+        if self.mode == "story":
+            if self.story_format == "screenplay":
+                _section_sys_tpl = p.SCREENPLAY_SECTION_SYSTEM_PROMPT_TEMPLATE
+            else:
+                _section_sys_tpl = p.STORY_SECTION_SYSTEM_PROMPT_TEMPLATE
+            system_prompt = _section_sys_tpl.format(
+                report_title=outline.title,
+                report_summary=outline.summary,
+                simulation_requirement=self.simulation_requirement,
+                section_title=section.title,
+                tools_description=self._get_tools_description(),
+                story_format=self.story_format or "novel",
+            )
+        else:
+            system_prompt = p.SECTION_SYSTEM_PROMPT_TEMPLATE.format(
+                report_title=outline.title,
+                report_summary=outline.summary,
+                simulation_requirement=self.simulation_requirement,
+                section_title=section.title,
+                tools_description=self._get_tools_description(),
+            )
 
         # 构建用户prompt - 每个已完成章节各传入最大4000字
         if previous_sections:
@@ -944,10 +980,17 @@ class ReportAgent:
                 else "（这是第一个章节）"
             )
 
-        user_prompt = p.SECTION_USER_PROMPT_TEMPLATE.format(
-            previous_content=previous_content,
-            section_title=section.title,
-        )
+        if self.mode == "story":
+            user_prompt = p.STORY_SECTION_USER_PROMPT_TEMPLATE.format(
+                previous_content=previous_content,
+                section_title=section.title,
+                story_format=self.story_format or "novel",
+            )
+        else:
+            user_prompt = p.SECTION_USER_PROMPT_TEMPLATE.format(
+                previous_content=previous_content,
+                section_title=section.title,
+            )
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -1593,7 +1636,12 @@ class ReportAgent:
 
         p = get_prompts(self.locale)
 
-        system_prompt = p.CHAT_SYSTEM_PROMPT_TEMPLATE.format(
+        if self.mode == "story":
+            _chat_tpl = p.STORY_CHAT_SYSTEM_PROMPT_TEMPLATE
+        else:
+            _chat_tpl = p.CHAT_SYSTEM_PROMPT_TEMPLATE
+
+        system_prompt = _chat_tpl.format(
             simulation_requirement=self.simulation_requirement,
             report_content=report_content
             if report_content

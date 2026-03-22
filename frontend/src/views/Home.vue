@@ -122,6 +122,48 @@
         <!-- 右栏：交互控制台 -->
         <div class="right-panel">
           <div class="console-box">
+            <!-- Mode Selector -->
+            <div class="console-section">
+              <div class="mode-selector">
+                <button 
+                  class="mode-btn" 
+                  :class="{ active: formData.mode === 'prediction' }"
+                  @click="formData.mode = 'prediction'; formData.storyFormat = null"
+                >
+                  <span class="mode-icon">📊</span>
+                  <span class="mode-label">{{ $t('home.modePrediction') }}</span>
+                  <span class="mode-desc">{{ $t('home.modePredictionDesc') }}</span>
+                </button>
+                <button 
+                  class="mode-btn" 
+                  :class="{ active: formData.mode === 'story' }"
+                  @click="formData.mode = 'story'"
+                >
+                  <span class="mode-icon">📖</span>
+                  <span class="mode-label">{{ $t('home.modeStory') }}</span>
+                  <span class="mode-desc">{{ $t('home.modeStoryDesc') }}</span>
+                </button>
+              </div>
+
+              <!-- Story Format (only visible when story mode is selected) -->
+              <div v-if="formData.mode === 'story'" class="format-selector">
+                <button 
+                  class="format-btn"
+                  :class="{ active: formData.storyFormat === 'novel' }"
+                  @click="formData.storyFormat = 'novel'"
+                >
+                  {{ $t('home.formatNovel') }}
+                </button>
+                <button 
+                  class="format-btn"
+                  :class="{ active: formData.storyFormat === 'screenplay' }"
+                  @click="formData.storyFormat = 'screenplay'"
+                >
+                  {{ $t('home.formatScreenplay') }}
+                </button>
+              </div>
+            </div>
+
             <!-- 上传区域 -->
             <div class="console-section">
               <div class="console-header">
@@ -177,7 +219,7 @@
                 <textarea
                   v-model="formData.simulationRequirement"
                   class="code-input"
-                  :placeholder="$t('home.console.promptPlaceholder')"
+                  :placeholder="formData.mode === 'story' ? $t('home.console.storyPromptPlaceholder') : $t('home.console.promptPlaceholder')"
                   rows="6"
                   :disabled="loading"
                 ></textarea>
@@ -220,7 +262,9 @@ const router = useRouter()
 
 // 表单数据
 const formData = ref({
-  simulationRequirement: ''
+  simulationRequirement: '',
+  mode: 'prediction',
+  storyFormat: null
 })
 
 // 文件列表
@@ -297,9 +341,12 @@ const scrollToBottom = () => {
 const startSimulation = () => {
   if (!canSubmit.value || loading.value) return
   
+  // Store mode in localStorage for MainView step labels
+  localStorage.setItem('mirofish-mode', formData.value.mode)
+  
   // 存储待上传的数据
   import('../store/pendingUpload.js').then(({ setPendingUpload }) => {
-    setPendingUpload(files.value, formData.value.simulationRequirement)
+    setPendingUpload(files.value, formData.value.simulationRequirement, formData.value.mode, formData.value.storyFormat)
     
     // 立即跳转到Process页面（使用特殊标识表示新建项目）
     router.push({
@@ -871,6 +918,85 @@ const startSimulation = () => {
   0% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.2); }
   70% { box-shadow: 0 0 0 6px rgba(0, 0, 0, 0); }
   100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
+}
+
+/* Mode Selector */
+.mode-selector {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.mode-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px;
+  background: #FAFAFA;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--gray-text);
+}
+
+.mode-btn:hover {
+  border-color: #999;
+  color: var(--black);
+}
+
+.mode-btn.active {
+  border-color: var(--orange);
+  background: rgba(255, 69, 0, 0.05);
+  color: var(--black);
+}
+
+.mode-icon {
+  font-size: 24px;
+}
+
+.mode-label {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.mode-desc {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  text-align: center;
+}
+
+.format-selector {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.format-btn {
+  flex: 1;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--gray-text);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.format-btn:hover {
+  border-color: #999;
+}
+
+.format-btn.active {
+  border-color: var(--orange);
+  background: rgba(255, 69, 0, 0.08);
+  color: var(--black);
 }
 
 /* 响应式适配 */

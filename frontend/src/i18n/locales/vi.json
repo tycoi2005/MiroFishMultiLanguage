@@ -78,7 +78,12 @@
       "reportGen": "Tạo Báo cáo",
       "reportGenDesc": "ReportAgent với bộ công cụ phong phú để tương tác sâu với môi trường sau mô phỏng",
       "interaction": "Tương tác Sâu",
-      "interactionDesc": "Trò chuyện với bất kỳ cá nhân nào trong thế giới mô phỏng & Trò chuyện với ReportAgent"
+      "interactionDesc": "Trò chuyện với bất kỳ cá nhân nào trong thế giới mô phỏng & Trò chuyện với ReportAgent",
+      "worldBuild": "Xây dựng Thế giới",
+      "characterSetup": "Thiết lập Nhân vật",
+      "runNarrative": "Chạy Tường thuật",
+      "storyGen": "Tạo Câu chuyện",
+      "characterChat": "Trò chuyện Nhân vật"
     },
     "console": {
       "seedLabel": "01 / Hạt giống Thực tế",
@@ -90,8 +95,15 @@
       "promptPlaceholder": "// Nhập yêu cầu mô phỏng hoặc dự đoán bằng ngôn ngữ tự nhiên",
       "engineBadge": "Engine: MiroFish-V1.0",
       "startEngine": "Khởi động Engine",
-      "initializing": "Đang khởi tạo..."
-    }
+      "initializing": "Đang khởi tạo...",
+      "storyPromptPlaceholder": "// Mô tả bối cảnh câu chuyện, nhân vật và thế giới quan"
+    },
+    "modePrediction": "Dự đoán",
+    "modePredictionDesc": "Phân tích và dự đoán xu hướng tương lai",
+    "modeStory": "Truyện",
+    "modeStoryDesc": "Tạo câu chuyện sáng tạo",
+    "formatNovel": "Tiểu thuyết",
+    "formatScreenplay": "Kịch bản"
   },
   "process": {
     "stepBadge": "BƯỚC 01",

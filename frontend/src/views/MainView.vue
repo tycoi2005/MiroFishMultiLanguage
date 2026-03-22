@@ -95,7 +95,26 @@ const viewMode = ref('split') // graph | split | workbench
 
 // Step State
 const currentStep = ref(1) // 1: 图谱构建, 2: 环境搭建, 3: 开始模拟, 4: 报告生成, 5: 深度互动
-const stepNames = computed(() => [t('home.steps.graphBuild'), t('home.steps.envSetup'), t('home.steps.startSim'), t('home.steps.reportGen'), t('home.steps.interaction')])
+const projectMode = ref(localStorage.getItem('mirofish-mode') || 'prediction')
+
+const stepNames = computed(() => {
+  if (projectMode.value === 'story') {
+    return [
+      t('home.steps.worldBuild'),
+      t('home.steps.characterSetup'),
+      t('home.steps.runNarrative'),
+      t('home.steps.storyGen'),
+      t('home.steps.characterChat')
+    ]
+  }
+  return [
+    t('home.steps.graphBuild'),
+    t('home.steps.envSetup'),
+    t('home.steps.startSim'),
+    t('home.steps.reportGen'),
+    t('home.steps.interaction')
+  ]
+})
 
 // Data State
 const currentProjectId = ref(route.params.projectId)
@@ -207,6 +226,10 @@ const handleNewProject = async () => {
     const formData = new FormData()
     pending.files.forEach(f => formData.append('files', f))
     formData.append('simulation_requirement', pending.simulationRequirement)
+    formData.append('mode', pending.mode || 'prediction')
+    if (pending.storyFormat) {
+      formData.append('story_format', pending.storyFormat)
+    }
     
     const res = await generateOntology(formData)
     if (res.success) {

@@ -78,7 +78,12 @@
       "reportGen": "Berichterstellung",
       "reportGenDesc": "ReportAgent mit umfangreichem Toolset für tiefgehende Interaktion mit der Post-Simulations-Umgebung",
       "interaction": "Tiefgehende Interaktion",
-      "interactionDesc": "Chat mit beliebigen Individuen der simulierten Welt & Chat mit ReportAgent"
+      "interactionDesc": "Chat mit beliebigen Individuen der simulierten Welt & Chat mit ReportAgent",
+      "worldBuild": "Weltenbau",
+      "characterSetup": "Figurengestaltung",
+      "runNarrative": "Erzählung starten",
+      "storyGen": "Geschichtsgenerierung",
+      "characterChat": "Figurenchat"
     },
     "console": {
       "seedLabel": "01 / Reale Ausgangsdaten",
@@ -90,8 +95,15 @@
       "promptPlaceholder": "// Geben Sie Simulations- oder Vorhersageanforderungen in natürlicher Sprache ein",
       "engineBadge": "Engine: MiroFish-V1.0",
       "startEngine": "Engine starten",
-      "initializing": "Wird initialisiert..."
-    }
+      "initializing": "Wird initialisiert...",
+      "storyPromptPlaceholder": "// Beschreiben Sie die Handlung, die Figuren und die Welt der Geschichte"
+    },
+    "modePrediction": "Vorhersage",
+    "modePredictionDesc": "Zukunftstrends analysieren und vorhersagen",
+    "modeStory": "Geschichte",
+    "modeStoryDesc": "Kreative Erzählungen generieren",
+    "formatNovel": "Roman",
+    "formatScreenplay": "Drehbuch"
   },
   "process": {
     "stepBadge": "SCHRITT 01",

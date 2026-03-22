@@ -78,7 +78,12 @@
       "reportGen": "Report Generation",
       "reportGenDesc": "ReportAgent with rich toolset for deep interaction with post-simulation environment",
       "interaction": "Deep Interaction",
-      "interactionDesc": "Chat with any individual in the simulated world & Chat with ReportAgent"
+      "interactionDesc": "Chat with any individual in the simulated world & Chat with ReportAgent",
+      "worldBuild": "World Build",
+      "characterSetup": "Character Setup",
+      "runNarrative": "Run Narrative",
+      "storyGen": "Story Generation",
+      "characterChat": "Character Chat"
     },
     "console": {
       "seedLabel": "01 / Reality Seeds",
@@ -90,8 +95,15 @@
       "promptPlaceholder": "// Enter simulation or prediction requirements in natural language",
       "engineBadge": "Engine: MiroFish-V1.0",
       "startEngine": "Start Engine",
-      "initializing": "Initializing..."
-    }
+      "initializing": "Initializing...",
+      "storyPromptPlaceholder": "// Describe the story premise, characters, and world"
+    },
+    "modePrediction": "Prediction",
+    "modePredictionDesc": "Analyze and predict future trends",
+    "modeStory": "Story",
+    "modeStoryDesc": "Generate creative narratives",
+    "formatNovel": "Novel",
+    "formatScreenplay": "Screenplay"
   },
   "process": {
     "stepBadge": "STEP 01",
