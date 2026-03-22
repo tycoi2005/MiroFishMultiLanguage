@@ -20,7 +20,7 @@
 [![X](https://img.shields.io/badge/X-Follow-000000?style=flat-square&logo=x&logoColor=white)](https://x.com/mirofish_ai)
 [![Instagram](https://img.shields.io/badge/Instagram-Follow-E4405F?style=flat-square&logo=instagram&logoColor=white)](https://www.instagram.com/mirofish_ai/)
 
-[English](./README-EN.md) | [中文文档](./README.md)
+[English](./README-EN.md) | [中文](./README.md) | [Tiếng Việt](./README-VI.md) | [Deutsch](./README-DE.md)
 
 </div>
 
@@ -82,6 +82,44 @@ Click the image to watch MiroFish's deep prediction of the lost ending based on 
 </div>
 
 > **Financial Prediction**, **Political News Prediction** and more examples coming soon...
+
+## 📖 Story Mode (New!)
+
+MiroFish now supports **Story Mode** — in addition to predicting the future, you can use it to **generate creative narratives** from your seed materials.
+
+### How It Works
+
+On the home page, select between two modes:
+
+| Mode | What It Does |
+|------|-------------|
+| **Prediction** (default) | Analyzes seed data and generates an analytical prediction report |
+| **Story** | Uses the same simulation engine but generates creative fiction — novel-style prose or screenplay format |
+
+### Story Output Formats
+
+- **Novel**: Rich prose with vivid scene descriptions, authentic character dialogue, internal thoughts, and narrative arc
+- **Screenplay**: Professional screenplay format with INT./EXT. scene headings, character names in CAPS, parentheticals, and visual storytelling
+
+### Example Use Case
+
+Upload a world-building document (e.g., a Harry Potter universe seed with custom characters), select **Story** mode, and enter a premise like:
+
+> *"Write a story from Derek Thorne's perspective — a muggle-born kid who smuggled a gun into Hogwarts"*
+
+MiroFish will simulate character interactions, then generate a multi-chapter narrative where characters act autonomously based on their personalities and relationships.
+
+### What Changes in Story Mode
+
+| Step | Prediction Mode | Story Mode |
+|------|----------------|------------|
+| Step 1 | Graph Build | World Build |
+| Step 2 | Environment Setup | Character Setup |
+| Step 3 | Start Simulation | Run Narrative |
+| Step 4 | Report Generation | Story Generation |
+| Step 5 | Deep Interaction | Character Chat |
+
+The simulation agents behave as **fictional characters** rather than social media users, and the Report Agent writes **narrative chapters** instead of analytical sections.
 
 ## 🔄 Workflow
 
