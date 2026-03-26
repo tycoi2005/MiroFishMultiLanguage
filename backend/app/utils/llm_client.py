@@ -248,34 +248,109 @@ class LLMClient:
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0.3,
-        max_tokens: int = 4096,
+        max_tokens: int = 8192,
     ) -> Dict[str, Any]:
         """
-        发送聊天请求并返回JSON
-
-        Args:
-            messages: 消息列表
-            temperature: 温度参数
-            max_tokens: 最大token数
-
-        Returns:
-            解析后的JSON对象
+        Send a chat request and return parsed JSON.
+        Retries with higher max_tokens if response is truncated.
+        Attempts to repair truncated JSON before giving up.
         """
-        response = self.chat(
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            response_format={"type": "json_object"},
-        )
-        # 清理markdown代码块标记
-        cleaned_response = response.strip()
-        cleaned_response = re.sub(
-            r"^```(?:json)?\s*\n?", "", cleaned_response, flags=re.IGNORECASE
-        )
-        cleaned_response = re.sub(r"\n?```\s*$", "", cleaned_response)
-        cleaned_response = cleaned_response.strip()
+        last_error = None
+        # Try with increasing max_tokens if JSON is truncated
+        for attempt_tokens in [max_tokens, max_tokens * 2, max_tokens * 3]:
+            response = self.chat(
+                messages=messages,
+                temperature=temperature,
+                max_tokens=attempt_tokens,
+                response_format={"type": "json_object"},
+            )
+            # Clean markdown code block markers
+            cleaned = response.strip()
+            cleaned = re.sub(r"^```(?:json)?\s*\n?", "", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"\n?```\s*$", "", cleaned)
+            cleaned = cleaned.strip()
+
+            try:
+                return json.loads(cleaned)
+            except json.JSONDecodeError as e:
+                last_error = e
+                logger.warning(
+                    f"JSON parse failed (max_tokens={attempt_tokens}): {str(e)[:100]}"
+                )
+
+                # Try to repair truncated JSON
+                repaired = self._try_repair_json(cleaned)
+                if repaired is not None:
+                    logger.info("Successfully repaired truncated JSON")
+                    return repaired
+
+                # If the response looks truncated (ends mid-string/mid-object),
+                # retry with more tokens
+                if attempt_tokens < max_tokens * 3:
+                    logger.info(
+                        f"Retrying with higher max_tokens: {attempt_tokens * 2}"
+                    )
+                    continue
+
+        raise ValueError(f"Invalid JSON from LLM after retries: {str(last_error)}")
+
+    @staticmethod
+    def _try_repair_json(text: str) -> Optional[Dict]:
+        """
+        Attempt to repair truncated JSON by closing open brackets/braces.
+        Returns parsed dict if successful, None if not.
+        """
+        if not text or not text.startswith("{"):
+            return None
+
+        # Count open/close brackets
+        open_braces = text.count("{") - text.count("}")
+        open_brackets = text.count("[") - text.count("]")
+
+        if open_braces <= 0 and open_brackets <= 0:
+            return None  # Not a truncation issue
+
+        # Try progressively aggressive truncation + closure
+        # Strategy: find the last complete item, close everything
+        repaired = text.rstrip().rstrip(",")
+
+        # If we're inside a string, close it
+        in_string = False
+        escaped = False
+        for ch in repaired:
+            if escaped:
+                escaped = False
+                continue
+            if ch == "\\":
+                escaped = True
+                continue
+            if ch == '"':
+                in_string = not in_string
+
+        if in_string:
+            repaired += '"'
+
+        # Close remaining brackets and braces
+        for _ in range(open_brackets):
+            repaired += "]"
+        for _ in range(open_braces):
+            repaired += "}"
 
         try:
-            return json.loads(cleaned_response)
+            return json.loads(repaired)
         except json.JSONDecodeError:
-            raise ValueError(f"LLM返回的JSON格式无效: {cleaned_response}")
+            # More aggressive: strip back to last complete object/array element
+            # Find last valid closing point
+            for i in range(len(text) - 1, max(0, len(text) - 500), -1):
+                if text[i] in ("}", "]"):
+                    snippet = text[: i + 1]
+                    # Close any remaining open structures
+                    ob = snippet.count("{") - snippet.count("}")
+                    ol = snippet.count("[") - snippet.count("]")
+                    snippet += "]" * max(0, ol) + "}" * max(0, ob)
+                    try:
+                        return json.loads(snippet)
+                    except json.JSONDecodeError:
+                        continue
+
+        return None

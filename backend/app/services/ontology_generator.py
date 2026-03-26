@@ -54,7 +54,7 @@ class OntologyGenerator:
 
         # 调用LLM
         result = self.llm_client.chat_json(
-            messages=messages, temperature=0.3, max_tokens=4096
+            messages=messages, temperature=0.3, max_tokens=8192
         )
 
         # 验证和后处理
