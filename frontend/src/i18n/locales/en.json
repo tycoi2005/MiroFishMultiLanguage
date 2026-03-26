@@ -430,7 +430,10 @@
     "retryConfig": "Auto-Retry",
     "availableModels": "Available Models",
     "modelsFound": "models available in your current tier",
-    "currentModel": "ACTIVE"
+    "currentModel": "ACTIVE",
+    "llmProviders": "LLM Providers",
+    "providers": "providers",
+    "providerCount": "Providers"
   },
   "logs": {
     "step2Init": "Step2 Environment Setup initialization",

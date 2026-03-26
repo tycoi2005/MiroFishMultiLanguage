@@ -30,19 +30,64 @@
         <span class="overall-text">{{ $t('health.overall') }}: {{ overallLabel }}</span>
       </div>
 
-      <!-- Service Cards -->
+      <!-- LLM Providers -->
+      <div class="providers-section" v-if="healthData">
+        <div class="providers-header">
+          <h3>{{ $t('health.llmProviders') }}</h3>
+          <span class="provider-count">{{ llmProviders.length }} {{ $t('health.providers') }}</span>
+          <span class="provider-mode mono">Round-Robin</span>
+        </div>
+
+        <div class="providers-list">
+          <div 
+            v-for="(p, idx) in llmProviders" 
+            :key="p.name"
+            class="provider-card"
+            :class="'pstatus-' + p.status"
+          >
+            <div class="provider-top">
+              <span class="provider-index">#{{ idx + 1 }}</span>
+              <span class="provider-name mono">{{ p.name }}</span>
+              <span class="provider-local" v-if="p.is_local">LOCAL</span>
+              <span class="provider-status-badge" :class="'pbadge-' + p.status">
+                {{ getStatusLabel(p.status) }}
+              </span>
+              <span class="provider-latency" v-if="p.latency_ms" :class="latencyClass(p.latency_ms)">
+                {{ p.latency_ms }}ms
+              </span>
+            </div>
+            <div class="provider-details">
+              <span class="provider-model mono">{{ p.model }}</span>
+              <span class="provider-url">{{ p.base_url }}</span>
+            </div>
+            <!-- Error -->
+            <div class="provider-error" v-if="p.error">{{ p.error }}</div>
+            <!-- Rate Limits -->
+            <div class="provider-limits" v-if="p.rate_limit">
+              <div 
+                v-for="(val, key) in p.rate_limit" 
+                :key="key" 
+                class="plimit-tag"
+                :class="{ 'plimit-warn': key.includes('remaining') && parseInt(val) < 100 }"
+              >
+                <span class="plimit-key">{{ formatLimitKey(key) }}</span>
+                <span class="plimit-val mono">{{ val }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Zep Service -->
       <div class="services-grid" v-if="healthData">
         <div 
-          v-for="service in healthData.services" 
+          v-for="service in healthData.services.filter(s => s.name !== 'LLM API')" 
           :key="service.name"
           class="service-card"
           :class="'status-' + service.status"
         >
           <div class="service-header">
-            <div class="service-icon">
-              <span v-if="service.name === 'LLM API'">&#x1F916;</span>
-              <span v-else>&#x1F4CA;</span>
-            </div>
+            <div class="service-icon"><span>&#x1F4CA;</span></div>
             <div class="service-title">
               <h3>{{ service.name }}</h3>
               <span class="status-badge" :class="'badge-' + service.status">
@@ -50,49 +95,16 @@
               </span>
             </div>
           </div>
-
           <div class="service-details">
-            <!-- Config info -->
-            <div class="detail-row" v-if="service.base_url">
-              <span class="detail-label">{{ $t('health.baseUrl') }}</span>
-              <span class="detail-value mono">{{ service.base_url }}</span>
-            </div>
-            <div class="detail-row" v-if="service.model">
-              <span class="detail-label">{{ $t('health.model') }}</span>
-              <span class="detail-value mono">{{ service.model }}</span>
-            </div>
-
-            <!-- Latency -->
             <div class="detail-row" v-if="service.latency_ms !== null">
               <span class="detail-label">{{ $t('health.latency') }}</span>
-              <span class="detail-value" :class="latencyClass(service.latency_ms)">
-                {{ service.latency_ms }}ms
-              </span>
+              <span class="detail-value" :class="latencyClass(service.latency_ms)">{{ service.latency_ms }}ms</span>
             </div>
-
-            <!-- Error -->
             <div class="detail-row error-row" v-if="service.error">
               <span class="detail-label">{{ $t('health.error') }}</span>
               <span class="detail-value error-text">{{ service.error }}</span>
             </div>
-
-            <!-- Rate Limits -->
-            <div class="rate-limits" v-if="service.rate_limit">
-              <h4>{{ $t('health.rateLimits') }}</h4>
-              <div class="limits-grid">
-                <div 
-                  v-for="(val, key) in service.rate_limit" 
-                  :key="key" 
-                  class="limit-item"
-                >
-                  <span class="limit-label">{{ formatLimitKey(key) }}</span>
-                  <span class="limit-value mono">{{ val }}</span>
-                </div>
-              </div>
-            </div>
           </div>
-
-          <!-- Configured indicator -->
           <div class="config-indicator">
             <span :class="service.configured ? 'configured' : 'not-configured'">
               {{ service.configured ? $t('health.configured') : $t('health.notConfigured') }}
@@ -106,12 +118,8 @@
         <h3>{{ $t('health.configTitle') }}</h3>
         <div class="config-grid">
           <div class="config-item">
-            <span class="config-label">{{ $t('health.model') }}</span>
-            <span class="config-value mono">{{ healthData.config.llm_model }}</span>
-          </div>
-          <div class="config-item">
-            <span class="config-label">{{ $t('health.baseUrl') }}</span>
-            <span class="config-value mono">{{ healthData.config.llm_base_url }}</span>
+            <span class="config-label">{{ $t('health.providerCount') }}</span>
+            <span class="config-value mono">{{ healthData.config.provider_count }}</span>
           </div>
           <div class="config-item">
             <span class="config-label">{{ $t('health.retryConfig') }}</span>
@@ -215,6 +223,12 @@ const checkHealth = async () => {
     isLoading.value = false
   }
 }
+
+const llmProviders = computed(() => {
+  if (!healthData.value) return []
+  const llmService = healthData.value.services.find(s => s.name === 'LLM API')
+  return llmService?.providers || []
+})
 
 const overallClass = computed(() => {
   if (!healthData.value) return ''
@@ -365,6 +379,136 @@ onMounted(() => {
 .overall-degraded .overall-dot { background: #D97706; box-shadow: 0 0 6px rgba(245,158,11,0.4); }
 .overall-healthy .overall-text { color: #16A34A; }
 .overall-degraded .overall-text { color: #D97706; }
+
+/* LLM Providers */
+.providers-section {
+  margin-bottom: 24px;
+}
+
+.providers-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.providers-header h3 { margin: 0; font-size: 16px; font-weight: 700; color: #000; }
+.provider-count { font-size: 12px; color: #888; }
+.provider-mode {
+  font-size: 10px;
+  padding: 2px 8px;
+  background: #F3F4F6;
+  border-radius: 4px;
+  color: #666;
+  letter-spacing: 0.5px;
+}
+
+.providers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.provider-card {
+  background: #FAFAFA;
+  border: 1px solid #EAEAEA;
+  border-radius: 10px;
+  padding: 14px 16px;
+  transition: border-color 0.15s;
+}
+.provider-card:hover { border-color: #CCC; }
+.provider-card.pstatus-healthy { border-left: 3px solid #16A34A; }
+.provider-card.pstatus-rate_limited { border-left: 3px solid #D97706; }
+.provider-card.pstatus-auth_error,
+.provider-card.pstatus-connection_error,
+.provider-card.pstatus-error { border-left: 3px solid #DC2626; }
+
+.provider-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.provider-index {
+  font-size: 11px;
+  font-weight: 700;
+  color: #999;
+  font-family: 'JetBrains Mono', monospace;
+  min-width: 20px;
+}
+
+.provider-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111;
+}
+
+.provider-local {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  background: #DBEAFE;
+  color: #1D4ED8;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+
+.provider-status-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  margin-left: auto;
+}
+.pbadge-healthy { background: rgba(34,197,94,0.1); color: #16A34A; }
+.pbadge-rate_limited { background: rgba(245,158,11,0.1); color: #D97706; }
+.pbadge-auth_error, .pbadge-connection_error, .pbadge-error { background: rgba(220,38,38,0.1); color: #DC2626; }
+
+.provider-latency {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.provider-details {
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+.provider-model { color: #333; font-weight: 500; }
+.provider-url { color: #999; }
+
+.provider-error {
+  font-size: 11px;
+  color: #DC2626;
+  margin-top: 4px;
+  padding: 4px 8px;
+  background: rgba(220,38,38,0.04);
+  border-radius: 4px;
+  word-break: break-word;
+}
+
+.provider-limits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.plimit-tag {
+  display: flex;
+  gap: 6px;
+  padding: 3px 8px;
+  background: #F5F5F5;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.plimit-tag.plimit-warn {
+  background: rgba(245,158,11,0.08);
+}
+.plimit-key { color: #888; }
+.plimit-val { color: #333; }
 
 /* Service Cards */
 .services-grid {

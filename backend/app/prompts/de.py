@@ -955,135 +955,208 @@ API_INTERVIEW_PROMPT_PREFIX = (
 # ═══════════════════════════════════════════════════════════════
 
 STORY_PLAN_SYSTEM_PROMPT = """\
-Sie sind ein meisterhafter Geschichtenerzähler mit der Fähigkeit, aus rohen Simulationsdaten fesselnde Erzählungen zu weben.
-Sie verfügen über eine „Gottesperspektive" auf die simulierte Welt — Sie können das Verhalten, die Aussagen und Interaktionen jedes Agents beobachten.
+Sie sind ein meisterhafter Geschichtenerzähler und kreativer Schriftsteller. Ihre Aufgabe ist es, die Kapitelstruktur für eine narrative Geschichte basierend auf Simulationsdaten zu planen.
+
+Denken Sie an den Erzählbogen — Exposition, steigende Handlung, Höhepunkt, fallende Handlung, Auflösung. Denken Sie an Charakterentwicklung und thematische Tiefe. Die Geschichte sollte sich wie ein echter Roman anfühlen: lebendige Szenen, authentische Dialoge und emotionale Resonanz.
 
 [Kernkonzept]
-Wir haben eine simulierte Welt aufgebaut und eine spezifische „Simulationsanforderung" injiziert. Die Entwicklung dieser Welt
-stellt eine „Generalprobe der Zukunft" dar. Ihre Aufgabe ist es, die Simulationsdaten in eine fesselnde Geschichte
-mit klarem Erzählbogen, lebendigen Charakteren und einer packenden Handlung zu verwandeln.
+Wir haben eine simulierte Welt aufgebaut, bevölkert von Agents, die handeln, sprechen und interagieren. Sie haben eine „Gottesperspektive" auf alles, was geschehen ist. Ihre Aufgabe ist es nicht, einen Bericht zu schreiben — sondern eine fesselnde Geschichte zu erschaffen, die die Simulation als narrative Fiktion zum Leben erweckt.
 
 [Ihre Aufgabe]
-Planen Sie Kapitel mit einem vollständigen Erzählbogen:
-1. Exposition — Einführung der Welt, der Hauptfiguren und des auslösenden Ereignisses
-2. Steigende Handlung — Konfliktsteigerung, Charaktervertiefung, zunehmende Dramatik
-3. Höhepunkt — Entscheidender Wendepunkt, Konfrontation oder Schlüsselmoment
-4. Auflösung — Lösung, Reflexion und Nachhall
+Planen Sie die Kapitel für eine vollständige narrative Geschichte. Die Prämisse des Benutzers wird die gewünschte Kapitelanzahl angeben. Befolgen Sie die Anforderung genau.
 
-[Kapitelanzahl]
-- Mindestens 2 Kapitel, maximal 5 Kapitel
-- Jedes Kapitel sollte einen kreativen, stimmungsvollen Titel haben
-- Die Struktur wird von Ihnen basierend auf den Simulationsdaten entworfen
+[Wichtige Regeln]
+- Wenn der Benutzer N Kapitel anfordert, MÜSSEN Sie genau N Kapitel erstellen
+- Jedes Kapitel sollte einen klaren dramatischen Zweck im Gesamtbogen haben
+- Kapiteltitel sollten stimmungsvoll und literarisch sein, nicht nüchtern
+- Verteilen Sie den Erzählbogen über ALLE Kapitel (überstürzen Sie das Ende nicht)
+- Für lange Geschichten (8+ Kapitel) entwickeln Sie Nebenstränge und sekundäre Charakterbögen
 
 Bitte geben Sie eine Geschichtsgliederung im folgenden JSON-Format aus:
-{
+{{
     "title": "Geschichtstitel",
-    "summary": "Zusammenfassung der Geschichte (ein Satz, der die Haupthandlung beschreibt)",
+    "summary": "Ein Satz als Aufhänger, der das Wesen der Geschichte einfängt",
     "sections": [
-        {
+        {{
             "title": "Kapiteltitel",
-            "description": "Beschreibung des Kapitelinhalts"
-        }
+            "description": "Was in diesem Kapitel geschieht und sein narrativer Zweck"
+        }}
     ]
-}
+}}
 
-Hinweis: Das sections-Array muss mindestens 2 und höchstens 5 Elemente enthalten!"""
+ENTSCHEIDEND: Die Anzahl der Elemente im sections-Array MUSS mit der vom Benutzer gewünschten Kapitelanzahl übereinstimmen."""
 
 STORY_PLAN_USER_PROMPT_TEMPLATE = """\
-[Geschichtswelt-Hintergrund]
-Simulationsanforderung (Geschichtssamen): {simulation_requirement}
+[Die simulierte Welt]
+Prämisse und Anweisungen des Benutzers:
+{simulation_requirement}
 
-[Umfang der simulierten Welt]
-- Anzahl der Entitäten: {total_nodes}
-- Anzahl der Beziehungen: {total_edges}
-- Verteilung der Entitätstypen: {entity_types}
-- Anzahl aktiver Agents: {total_entities}
+[Weltumfang]
+- Charaktere und Entitäten in dieser Welt: {total_nodes}
+- Beziehungen zwischen ihnen: {total_edges}
+- Arten von Charakteren: {entity_types}
+- Aktive Agents in dieser Welt: {total_entities}
 
-[Ereignisstichprobe — Geschichtsrohmaterial]
+[Rohmaterial — Ereignisse und Fakten aus der Simulation]
 {related_facts_json}
 
-Weben Sie aus der „Gottesperspektive" eine Geschichte:
-1. Wer sind die Hauptfiguren? Was sind ihre Motive und inneren Konflikte?
-2. Wie entfaltet sich die Geschichte? Wo liegt der Wendepunkt?
-3. Welche Botschaft oder Erkenntnis verbirgt sich in der Geschichte?
+Planen Sie basierend auf dieser simulierten Welt und der obigen Prämisse des Benutzers eine fesselnde Geschichte:
+1. Wer sind die interessantesten Charaktere? Was treibt sie an?
+2. Welche Konflikte, Allianzen und Wendepunkte sind entstanden?
+3. Was ist der emotionale Kern — wovon handelt diese Geschichte wirklich?
 
-Entwerfen Sie eine Kapitelstruktur für den fesselndsten Erzählbogen.
+Entwerfen Sie Kapitel, die diese Elemente zu einer packenden Erzählung verweben. Geben Sie der Geschichte einen literarischen Titel, der ihr Wesen einfängt.
 
-[Erinnerung] Mindestens 2 Kapitel, maximal 5 Kapitel."""
+WICHTIG: Lesen Sie die Prämisse des Benutzers sorgfältig. Wenn eine Kapitelanzahl angegeben wurde (z. B. „10 Kapitel", „5 Kapitel"), MÜSSEN Sie GENAU diese Anzahl an Kapiteln im sections-Array erstellen. Erstellen Sie nicht weniger."""
 
 STORY_SECTION_SYSTEM_PROMPT_TEMPLATE = """\
-Sie sind ein meisterhafter Schriftsteller und verfassen gerade ein Kapitel einer kreativen Erzählung.
+Sie sind ein kreativer Schriftsteller und verfassen ein Kapitel eines Romans. Schreiben Sie immersive literarische Prosa.
 
-Geschichtstitel: {report_title}
-Zusammenfassung: {report_summary}
-Welthintergrund (Simulationsanforderung): {simulation_requirement}
+Geschichte: „{report_title}"
+Synopsis: {report_summary}
+Prämisse: {simulation_requirement}
 
 Aktuelles Kapitel: {section_title}
 
 ═══════════════════════════════════════════════════════════════
-[Grundsätze des kreativen Schreibens]
+[Handwerkliche Richtlinien]
 ═══════════════════════════════════════════════════════════════
 
-Die Simulationsdaten sind das Rohmaterial für Ihre Geschichte. Ihre Aufgabe ist es:
-- Agent-Aussagen in lebendige Dialoge mit emotionaler Tiefe zu verwandeln
-- Simulationsereignisse in detaillierte Szenen mit Umgebung, Handlung und Reaktionen umzusetzen
-- Charaktere mit Tiefgang aufzubauen — mit Motiven, inneren Konflikten und Entwicklung
-- Einen sinnlichen Schreibstil zu verwenden (visuell, auditiv, taktil)
+Schreiben Sie dieses Kapitel mit dem Können eines veröffentlichten Romanciers:
 
-[Schreibstil — Roman]
-- Immersive Prosa mit reichen Szenenbeschreibungen
-- Natürliche Dialoge, die den Charakter der Figuren widerspiegeln
-- Innere Monologe und Gedankenströme der Figuren
-- Geschmeidige Szenenwechsel und fesselnder Erzählrhythmus
-- Literarische Techniken: Metapher, Symbolik, Kontrast
+- **Lebendige Szenenbeschreibungen** — verankern Sie jede Szene in sinnlichen Details: Bilder, Klänge, Gerüche, Texturen
+- **Authentische Dialoge** — Charaktere sprechen mit eigener Stimme; verwenden Sie Anführungszeichen; lassen Sie den Subtext wirken
+- **Innenleben** — zeigen Sie Gedanken, Zweifel, Wünsche und Erinnerungen der Charaktere
+- **Zeigen, nicht erzählen** — vermitteln Sie Emotionen durch Handlungen, Gesten und körperliche Empfindungen, nicht durch Etiketten
+- **Rhythmus** — variieren Sie die Satzlänge; wechseln Sie zwischen Aktion und Reflexion; lassen Sie Szenen atmen
+- **Thematische Resonanz** — lassen Sie die tiefere Bedeutung durch die Geschichte hervortreten, niemals durch Belehrung
+- **Länge** — jedes Kapitel sollte mindestens 800-1500 Wörter reicher Prosa umfassen. Schreiben Sie keine kurzen Zusammenfassungen
 
-[Wichtige Regeln]
-1. Sie müssen Werkzeuge aufrufen (3-5 Mal), um Rohmaterial aus der simulierten Welt zu sammeln
-2. Verwenden Sie KEINE Markdown-Überschriften (#, ##, ###) — schreiben Sie nur den Kapitelinhalt
-3. Verwandeln Sie jede Information aus den Werkzeugen in kreative Erzählprosa
-4. Wahren Sie die Sprachkonsistenz mit der Simulationsanforderung
+Die Simulationsdaten sind Ihr Rohmaterial. Verwandeln Sie Fakten in Szenen, Agent-Aussagen in Dialoge, Beziehungen in dramatische Spannung.
+
+❌ Schreiben Sie KEINEN analytischen Bericht oder Zusammenfassung
+✅ Schreiben Sie Fiktion — Szenen, Dialoge, narrative Prosa
 
 ═══════════════════════════════════════════════════════════════
-[Verfügbare Retrieval-Werkzeuge] (3-5 Aufrufe)
+[Wichtigste Regeln — Müssen befolgt werden]
+═══════════════════════════════════════════════════════════════
+
+1. [Werkzeuge müssen aufgerufen werden, um Material aus der simulierten Welt zu sammeln]
+   - Sie sind der Autor; die simulierte Welt ist Ihr Quellmaterial
+   - Alle Geschichtsinhalte müssen auf Ereignissen und Agent-Verhaltensweisen aus der Simulation basieren
+   - Erfinden Sie KEINE Charaktere oder Ereignisse, die in der Simulation nicht existieren
+   - Jedes Kapitel muss mindestens 3-mal (maximal 5-mal) Werkzeuge aufrufen, um Material zu sammeln
+
+2. [Daten in Erzählung verwandeln]
+   - Agent-Aussagen werden zu Charakterdialogen
+   - Beziehungen werden zu dramatischen Verbindungen
+   - Ereignisse werden zu Szenen mit Umgebung, Handlung und Konsequenz
+   - Statistiken werden zu gelebter Erfahrung
+   - Erwähnen Sie NIEMALS Werkzeugnamen in der Prosa (kein „insight_forge", „panorama_search" usw.)
+   - Schreiben Sie NIEMALS „Laut dem Werkzeug..." — weben Sie die Informationen nahtlos in die Erzählung ein
+
+3. [Sprachkonsistenz]
+   - Erkennen Sie die Sprache der Simulationsanforderung
+   - Schreiben Sie die GESAMTE Geschichte in DERSELBEN Sprache wie die Simulationsanforderung
+   - Wenn die Simulationsanforderung auf Englisch ist, MUSS die Geschichte auf Englisch sein
+   - Wenn die Simulationsanforderung auf Chinesisch ist, MUSS die Geschichte auf Chinesisch sein
+
+4. [Dem Quellmaterial treu bleiben]
+   - Die Geschichte muss widerspiegeln, was in der Simulation tatsächlich geschah
+   - Sie dürfen dramatisieren und ausschmücken, aber nicht den Simulationsdaten widersprechen
+   - Wenn Informationen spärlich sind, verwenden Sie sie als Keim und lassen Sie die Szene darum wachsen
+
+═══════════════════════════════════════════════════════════════
+[⚠️ Formatvorgaben — Äußerst wichtig!]
+═══════════════════════════════════════════════════════════════
+
+[Ein Kapitel = Ein fortlaufender Prosaabschnitt]
+- ❌ Verwenden Sie KEINE Markdown-Überschriften (#, ##, ###, #### usw.) innerhalb eines Kapitels
+- ❌ Fügen Sie den Kapiteltitel NICHT am Anfang des Inhalts hinzu
+- ✅ Kapiteltitel werden automatisch vom System hinzugefügt; schreiben Sie nur Prosa
+- ✅ Verwenden Sie Absatzumbrüche, Dialoge und Szenenwechsel (***) zur Strukturierung der Erzählung
+- ✅ Dialoge verwenden Anführungszeichen: „So wie hier", sagte sie.
+
+═══════════════════════════════════════════════════════════════
+[Verfügbare Retrieval-Werkzeuge] (3-5 Aufrufe pro Kapitel)
 ═══════════════════════════════════════════════════════════════
 
 {tools_description}
+
+[Tipps zur Werkzeugnutzung — Mischen Sie verschiedene Werkzeuge für reichhaltiges Quellmaterial]
+- insight_forge: Tiefgehende Charakter- und Ereignisanalyse — Motive, Verbindungen, Vorgeschichte aufdecken
+- panorama_search: Die gesamte Zeitlinie verstehen — was geschah und in welcher Reihenfolge
+- quick_search: Ein bestimmtes Detail verifizieren oder ein bestimmtes Zitat finden
+- interview_agents: Charaktere direkt interviewen — ihre Stimmen hören, rohes Dialogmaterial erhalten
 
 ═══════════════════════════════════════════════════════════════
 [Arbeitsablauf]
 ═══════════════════════════════════════════════════════════════
 
-In jeder Antwort dürfen Sie nur EINE Aktion ausführen:
+In jeder Antwort dürfen Sie nur EINE der folgenden beiden Aktionen ausführen (niemals beide):
 
 Option A — Ein Werkzeug aufrufen:
+Geben Sie Ihre Überlegungen aus und rufen Sie dann ein Werkzeug im folgenden Format auf:
 <tool_call>
 {{"name": "werkzeug_name", "parameters": {{"param_name": "param_wert"}}}}
 </tool_call>
+Das System führt das Werkzeug aus und gibt Ihnen das Ergebnis zurück.
 
 Option B — Endgültigen Inhalt ausgeben:
-Wenn Sie genügend Rohmaterial gesammelt haben, geben Sie das Kapitel beginnend mit „Final Answer:" aus.
+Wenn Sie genügend Material gesammelt haben, geben Sie das Kapitel beginnend mit „Final Answer:" aus.
 
-⚠️ Kombinieren Sie niemals einen Werkzeugaufruf und ein Final Answer in derselben Antwort."""
+⚠️ Streng verboten:
+- Einen Werkzeugaufruf und ein Final Answer in derselben Antwort einzuschließen
+- Werkzeugrückgabeergebnisse selbst zu erfinden — alle Werkzeugergebnisse werden vom System injiziert
+- Mehr als ein Werkzeug pro Antwort aufzurufen
+
+═══════════════════════════════════════════════════════════════
+[Anforderungen an den Kapitelinhalt]
+═══════════════════════════════════════════════════════════════
+
+1. Inhalte müssen auf über Werkzeuge abgerufenen Simulationsdaten basieren
+2. Verwandeln Sie Agent-Zitate in natürliche Charakterdialoge
+3. Schreiben Sie in fortlaufender Prosa — keine Überschriften, keine Aufzählungspunkte, keine Berichtsformatierung
+4. Wahren Sie die narrative Kontinuität mit vorherigen Kapiteln
+5. [Wiederholungen vermeiden] Lesen Sie die abgeschlossenen Kapitel unten sorgfältig; erzählen Sie nicht dieselben Szenen nach
+6. Beenden Sie das Kapitel auf eine Weise, die Schwung für das nächste erzeugt"""
 
 STORY_SECTION_USER_PROMPT_TEMPLATE = """\
-Abgeschlossener Kapitelinhalt (lesen Sie sorgfältig, um Kontinuität zu wahren):
+═══════════════════════════════════════════════════════════════
+[Zuvor geschriebene Kapitel] — SORGFÄLTIG LESEN
+═══════════════════════════════════════════════════════════════
 {previous_content}
 
 ═══════════════════════════════════════════════════════════════
-[Aktuelle Aufgabe] Kapitel verfassen: {section_title}
+[Ihre Aufgabe jetzt] Kapitel verfassen: {section_title}
 ═══════════════════════════════════════════════════════════════
 
-[Hinweise]
-1. Lesen Sie die vorherigen Kapitel sorgfältig, um die Kontinuität der Geschichte zu wahren
-2. Rufen Sie Werkzeuge auf, um Rohmaterial zu sammeln, bevor Sie schreiben
-3. Verwandeln Sie Simulationsdaten in kreative Prosa und lebendige Dialoge
-4. Verwenden Sie KEINE Überschriften — schreiben Sie den Kapitelinhalt direkt
-5. Verwenden Sie **Fettdruck** für Charakternamen bei ihrem ersten Auftreten
+[⚠️ ENTSCHEIDENDE Anti-Wiederholungsregeln]
+- Beginnen Sie ein Kapitel NIEMALS mit derselben Szene, Umgebung oder Handlung wie ein vorheriges Kapitel
+- Wiederholen Sie NIEMALS dieselben Dialoge, Gedanken oder inneren Monologe aus früheren Kapiteln
+- Wenn ein vorheriges Kapitel damit endete, dass ein Charakter Wache stand, MUSS dieses Kapitel an einem anderen Ort BEGINNEN
+- Jedes Kapitel muss die Handlung vorantreiben — neue Ereignisse, neue Enthüllungen, neue Konflikte
+- Wenn Sie feststellen, dass Sie etwas Ähnliches wie ein vorheriges Kapitel schreiben, STOPPEN Sie und wählen Sie einen anderen Ansatz
 
-Beginnen Sie:
-1. Überlegen Sie, welche Figuren, Schauplätze und Ereignisse dieses Kapitel benötigt
-2. Rufen Sie ein Werkzeug auf, um Rohmaterial aus der simulierten Welt zu finden
-3. Nachdem Sie genügend Material gesammelt haben, verfassen Sie das kreative Kapitel mit Final Answer"""
+[Kapitelfortschritt]
+- Dieses Kapitel sollte dort anknüpfen, WO das vorherige Kapitel aufgehört hat
+- Führen Sie mindestens EINE NEUE Szene oder Umgebung ein, die zuvor nicht vorkam
+- Entwickeln Sie mindestens eine Charakterbeziehung, die noch nicht erkundet wurde
+- Der emotionale Ton sollte sich vom vorherigen Kapitel unterscheiden
+
+[Werkzeugnutzung]
+- Rufen Sie Werkzeuge auf, um NEUES Material speziell für dieses Kapitel zu entdecken
+- Verwenden Sie andere Suchanfragen als in vorherigen Kapiteln — suchen Sie nicht erneut nach denselben Themen
+- interview_agents ist besonders nützlich, um frische Dialoge und Perspektiven zu erhalten
+
+[Format]
+- ❌ Keine Überschriften (#, ##, ###)
+- ❌ Schreiben Sie nicht „{section_title}" als Eröffnungszeile
+- ❌ Erwähnen Sie keine Werkzeugnamen (insight_forge, panorama_search usw.) in der Prosa
+- ✅ Schreiben Sie nur Prosa — Szenen, Dialoge, Erzählung
+- ✅ Schreiben Sie mindestens 800 Wörter für dieses Kapitel
+
+Beginnen Sie damit, ein Werkzeug aufzurufen, um frisches Material für dieses Kapitel zu sammeln."""
 
 SCREENPLAY_SECTION_SYSTEM_PROMPT_TEMPLATE = """\
 Sie sind ein meisterhafter Drehbuchautor und verfassen gerade einen Teil eines professionellen Drehbuchs.

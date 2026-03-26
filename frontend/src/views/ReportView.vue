@@ -56,6 +56,7 @@
           :systemLogs="systemLogs"
           @add-log="addLog"
           @update-status="updateStatus"
+          @update-report-id="onReportIdChanged"
         />
       </div>
     </main>
@@ -125,6 +126,11 @@ const addLog = (msg) => {
   if (systemLogs.value.length > 200) {
     systemLogs.value.shift()
   }
+}
+
+const onReportIdChanged = (newId) => {
+  currentReportId.value = newId
+  addLog(`Report ID updated: ${newId}`)
 }
 
 const updateStatus = (status) => {

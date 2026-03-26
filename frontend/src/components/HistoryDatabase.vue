@@ -535,7 +535,7 @@ const goToReport = () => {
 const loadHistory = async () => {
   try {
     loading.value = true
-    const response = await getSimulationHistory(20)
+    const response = await getSimulationHistory(50)
     if (response.success) {
       projects.value = response.data || []
     }

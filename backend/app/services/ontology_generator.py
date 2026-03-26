@@ -18,8 +18,10 @@ class OntologyGenerator:
     分析文本内容，生成实体和关系类型定义
     """
 
-    def __init__(self, llm_client: Optional[LLMClient] = None):
-        self.llm_client = llm_client or LLMClient()
+    def __init__(self, llm_client=None):
+        from app.utils.llm_client import LLMBalancer
+
+        self.llm_client = llm_client or LLMBalancer()
 
     def generate(
         self,

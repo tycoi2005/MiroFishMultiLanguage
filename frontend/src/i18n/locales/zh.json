@@ -430,7 +430,10 @@
     "retryConfig": "自动重试",
     "availableModels": "可用模型",
     "modelsFound": "个模型可用于当前层级",
-    "currentModel": "使用中"
+    "currentModel": "使用中",
+    "llmProviders": "LLM 服务商",
+    "providers": "个服务商",
+    "providerCount": "服务商数"
   },
   "logs": {
     "step2Init": "Step2 环境搭建初始化",

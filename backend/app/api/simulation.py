@@ -963,10 +963,13 @@ def get_simulation_history():
         }
     """
     try:
-        limit = request.args.get("limit", 20, type=int)
+        limit = request.args.get("limit", 50, type=int)
 
         manager = SimulationManager()
-        simulations = manager.list_simulations()[:limit]
+        simulations = manager.list_simulations()
+        # Sort by newest first before slicing
+        simulations.sort(key=lambda s: s.created_at or "", reverse=True)
+        simulations = simulations[:limit]
 
         # 增强模拟数据，只从 Simulation 文件读取
         enriched_simulations = []

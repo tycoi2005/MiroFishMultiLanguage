@@ -430,7 +430,10 @@
     "retryConfig": "Tự động Thử lại",
     "availableModels": "Mô hình Khả dụng",
     "modelsFound": "mô hình khả dụng trong gói hiện tại",
-    "currentModel": "ĐANG DÙNG"
+    "currentModel": "ĐANG DÙNG",
+    "llmProviders": "Nhà cung cấp LLM",
+    "providers": "nhà cung cấp",
+    "providerCount": "Số nhà cung cấp"
   },
   "logs": {
     "step2Init": "Step2 Khởi tạo thiết lập môi trường",

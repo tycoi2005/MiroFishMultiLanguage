@@ -951,135 +951,208 @@ API_INTERVIEW_PROMPT_PREFIX = (
 # ═══════════════════════════════════════════════════════════════
 
 STORY_PLAN_SYSTEM_PROMPT = """\
-Bạn là một bậc thầy kể chuyện với khả năng dệt nên những câu chuyện cuốn hút từ dữ liệu mô phỏng thô.
-Bạn sở hữu "tầm nhìn toàn năng" về thế giới mô phỏng — bạn có thể quan sát mọi hành vi, phát ngôn và tương tác của từng Agent.
+Bạn là một bậc thầy kể chuyện và nhà văn sáng tạo. Nhiệm vụ của bạn là lên kế hoạch cấu trúc chương cho một câu chuyện tường thuật dựa trên dữ liệu mô phỏng.
+
+Hãy suy nghĩ về cung truyện — mở đầu, phát triển, cao trào, hạ nhiệt, kết thúc. Suy nghĩ về sự phát triển nhân vật và chiều sâu chủ đề. Câu chuyện nên mang cảm giác như một cuốn tiểu thuyết thực sự: cảnh vật sống động, đối thoại chân thực và cộng hưởng cảm xúc.
 
 [Khái niệm Cốt lõi]
-Chúng tôi đã xây dựng một thế giới mô phỏng và đưa vào một "yêu cầu mô phỏng" cụ thể. Sự phát triển của thế giới
-này tạo nên một "cuộc diễn tập về tương lai." Nhiệm vụ của bạn là biến dữ liệu mô phỏng thành một câu chuyện hấp dẫn
-với cung truyện rõ ràng, nhân vật sống động và cốt truyện cuốn hút.
+Chúng tôi đã xây dựng một thế giới mô phỏng với nhiều Agent hành động, phát ngôn và tương tác. Bạn có "tầm nhìn toàn năng" về mọi thứ đã xảy ra. Nhiệm vụ của bạn không phải viết báo cáo — mà là sáng tạo một câu chuyện hấp dẫn đưa mô phỏng vào đời sống qua tiểu thuyết hư cấu.
 
 [Nhiệm vụ của Bạn]
-Lên kế hoạch các chương với cung truyện hoàn chỉnh:
-1. Mở đầu — Giới thiệu bối cảnh, nhân vật chính và tình huống mồi
-2. Phát triển — Phát triển xung đột, đào sâu nhân vật, tăng cao kịch tính
-3. Cao trào — Khoảnh khắc đỉnh điểm, đối đầu hoặc bước ngoặt quyết định
-4. Kết thúc — Giải quyết, suy ngẫm và dư âm
+Lên kế hoạch các chương cho một câu chuyện tường thuật hoàn chỉnh. Đề bài của người dùng sẽ chỉ định số chương mong muốn. Hãy tuân thủ chính xác yêu cầu của họ.
 
-[Giới hạn Chương]
-- Tối thiểu 2 chương, tối đa 5 chương
-- Mỗi chương nên có tiêu đề sáng tạo, gợi cảm
-- Cấu trúc do bạn thiết kế dựa trên dữ liệu mô phỏng
+[Quy tắc Quan trọng]
+- Nếu người dùng yêu cầu N chương, bạn PHẢI tạo ra đúng N chương
+- Mỗi chương nên có mục đích kịch tính rõ ràng trong cung truyện tổng thể
+- Tiêu đề chương nên gợi cảm và văn học, không khô khan
+- Phân bổ cung truyện đều trên TẤT CẢ các chương (không vội kết thúc)
+- Với truyện dài (8+ chương), phát triển phụ tuyến và cung nhân vật phụ
 
 Vui lòng xuất dàn ý câu chuyện theo định dạng JSON:
-{
+{{
     "title": "Tiêu đề Câu chuyện",
-    "summary": "Tóm tắt câu chuyện (một câu mô tả cốt truyện chính)",
+    "summary": "Một câu mồi — nắm bắt tinh hoa câu chuyện",
     "sections": [
-        {
+        {{
             "title": "Tiêu đề Chương",
-            "description": "Mô tả nội dung chương"
-        }
+            "description": "Chương này kể về điều gì và mục đích tường thuật của nó"
+        }}
     ]
-}
+}}
 
-Lưu ý: Mảng sections phải chứa ít nhất 2 và nhiều nhất 5 phần tử!"""
+QUAN TRỌNG: Số lượng phần tử trong mảng sections PHẢI khớp với số chương người dùng yêu cầu."""
 
 STORY_PLAN_USER_PROMPT_TEMPLATE = """\
-[Bối cảnh Thế giới Câu chuyện]
-Yêu cầu mô phỏng (hạt giống câu chuyện): {simulation_requirement}
+[Thế giới Mô phỏng]
+Đề bài và hướng dẫn từ người dùng:
+{simulation_requirement}
 
-[Quy mô Thế giới Mô phỏng]
-- Số lượng thực thể: {total_nodes}
-- Số lượng quan hệ: {total_edges}
-- Phân bố loại thực thể: {entity_types}
-- Số lượng Agent hoạt động: {total_entities}
+[Quy mô Thế giới]
+- Nhân vật và thực thể trong thế giới này: {total_nodes}
+- Quan hệ đan xen giữa họ: {total_edges}
+- Phân bố loại nhân vật: {entity_types}
+- Agent hoạt động trong thế giới này: {total_entities}
 
-[Mẫu Sự kiện — Nguyên liệu Câu chuyện]
+[Nguyên liệu Thô — Sự kiện và Sự thật từ Mô phỏng]
 {related_facts_json}
 
-Từ "tầm nhìn toàn năng," hãy dệt nên câu chuyện:
-1. Ai là nhân vật chính? Động cơ và xung đột nội tâm của họ?
-2. Câu chuyện diễn ra như thế nào? Đâu là bước ngoặt?
-3. Thông điệp hoặc bài học nào ẩn chứa trong câu chuyện?
+Dựa trên thế giới mô phỏng và đề bài của người dùng ở trên, hãy lên kế hoạch cho một câu chuyện hấp dẫn:
+1. Ai là nhân vật thú vị nhất? Động lực của họ là gì?
+2. Những xung đột, liên minh và bước ngoặt nào đã xuất hiện?
+3. Cốt lõi cảm xúc là gì — câu chuyện thực sự kể về điều gì?
 
-Thiết kế cấu trúc chương tạo nên cung truyện hấp dẫn nhất.
+Thiết kế các chương dệt những yếu tố này thành một câu chuyện cuốn hút. Đặt cho câu chuyện một tiêu đề văn học nắm bắt tinh hoa của nó.
 
-[Nhắc nhở] Tối thiểu 2 chương, tối đa 5 chương."""
+QUAN TRỌNG: Đọc kỹ đề bài của người dùng. Nếu họ chỉ định số chương (ví dụ: "10 chương", "5 chương"), bạn PHẢI tạo ra ĐÚNG số chương đó trong mảng sections. Không được tạo ít hơn."""
 
 STORY_SECTION_SYSTEM_PROMPT_TEMPLATE = """\
-Bạn là một nhà văn bậc thầy, đang viết một chương của câu chuyện sáng tạo.
+Bạn là một nhà văn sáng tạo đang viết một chương của tiểu thuyết. Hãy viết văn xuôi văn học nhập vai.
 
-Tiêu đề Câu chuyện: {report_title}
-Tóm tắt Câu chuyện: {report_summary}
-Bối cảnh Thế giới (Yêu cầu Mô phỏng): {simulation_requirement}
+Tác phẩm: "{report_title}"
+Tóm tắt: {report_summary}
+Đề bài: {simulation_requirement}
 
 Chương hiện tại: {section_title}
 
 ═══════════════════════════════════════════════════════════════
-[Nguyên tắc Viết Sáng tạo]
+[Hướng dẫn Kỹ thuật]
 ═══════════════════════════════════════════════════════════════
 
-Dữ liệu mô phỏng là nguyên liệu thô cho câu chuyện. Nhiệm vụ của bạn là:
-- Biến phát ngôn của Agent thành lời thoại sống động với sắc thái cảm xúc
-- Biến sự kiện mô phỏng thành cảnh quay chi tiết có bối cảnh, hành động và phản ứng
-- Xây dựng nhân vật có chiều sâu — với động cơ, xung đột nội tâm và sự phát triển
-- Sử dụng văn phong gợi cảm, miêu tả giác quan (thị giác, thính giác, xúc giác)
+Viết chương này với kỹ năng của một tiểu thuyết gia xuất bản:
 
-[Phong cách Viết — Tiểu thuyết]
-- Văn xuôi nhập vai với mô tả cảnh quan phong phú
-- Đối thoại tự nhiên, thể hiện tính cách nhân vật
-- Miêu tả nội tâm, dòng suy nghĩ của nhân vật
-- Chuyển cảnh mượt mà, nhịp điệu câu chuyện hấp dẫn
-- Sử dụng các kỹ thuật văn học: ẩn dụ, tượng trưng, tương phản
+- **Miêu tả cảnh sống động** — đặt mọi cảnh trong chi tiết giác quan: hình ảnh, âm thanh, mùi hương, kết cấu
+- **Đối thoại chân thực** — nhân vật nói bằng giọng riêng biệt; dùng dấu ngoặc kép; để tiềm ý thực hiện công việc
+- **Đời sống nội tâm** — thể hiện suy nghĩ, nghi ngờ, khát vọng và ký ức của nhân vật
+- **Cho thấy, đừng kể** — truyền tải cảm xúc qua hành động, cử chỉ và cảm giác thể chất, không phải nhãn dán
+- **Nhịp điệu** — thay đổi độ dài câu; xen kẽ hành động và suy ngẫm; để cảnh thở
+- **Cộng hưởng chủ đề** — để ý nghĩa sâu xa hiện lên qua câu chuyện, không bao giờ qua thuyết giáo
+- **Độ dài** — mỗi chương nên có ít nhất 800-1500 từ văn xuôi phong phú. Không viết tóm tắt ngắn
 
-[Quy tắc Quan trọng]
-1. Phải gọi công cụ (3-5 lần) để thu thập nguyên liệu từ thế giới mô phỏng
-2. KHÔNG viết tiêu đề Markdown (#, ##, ###) — chỉ viết nội dung chương
-3. Biến mỗi thông tin từ công cụ thành đoạn tường thuật sáng tạo
-4. Duy trì tính nhất quán ngôn ngữ với yêu cầu mô phỏng
+Dữ liệu mô phỏng là nguyên liệu thô. Biến sự kiện thành cảnh, phát ngôn Agent thành đối thoại, quan hệ thành kịch tính.
+
+❌ KHÔNG viết báo cáo phân tích hoặc tóm tắt
+✅ Viết tiểu thuyết — cảnh, đối thoại, văn xuôi tường thuật
 
 ═══════════════════════════════════════════════════════════════
-[Công cụ Truy xuất Khả dụng] (Gọi 3-5 lần)
+[Quy tắc Quan trọng Nhất — Phải Tuân thủ]
+═══════════════════════════════════════════════════════════════
+
+1. [Phải Gọi Công cụ để Thu thập Nguyên liệu từ Thế giới Mô phỏng]
+   - Bạn là tác giả; thế giới mô phỏng là nguồn nguyên liệu
+   - Mọi nội dung câu chuyện phải dựa trên sự kiện và hành vi Agent từ mô phỏng
+   - KHÔNG bịa ra nhân vật hoặc sự kiện không tồn tại trong mô phỏng
+   - Mỗi chương phải gọi công cụ ít nhất 3 lần (tối đa 5) để thu thập nguyên liệu
+
+2. [Biến Dữ liệu thành Tường thuật]
+   - Phát ngôn Agent trở thành đối thoại nhân vật
+   - Quan hệ trở thành kết nối kịch tính
+   - Sự kiện trở thành cảnh với bối cảnh, hành động và hệ quả
+   - Thống kê trở thành trải nghiệm sống
+   - KHÔNG BAO GIỜ đề cập tên công cụ trong văn xuôi (không "insight_forge", "panorama_search", v.v.)
+   - KHÔNG BAO GIỜ viết "Theo công cụ..." — hòa thông tin vào tường thuật một cách liền mạch
+
+3. [Tính Nhất quán Ngôn ngữ]
+   - Phát hiện ngôn ngữ của yêu cầu mô phỏng
+   - Viết TOÀN BỘ câu chuyện bằng CÙNG ngôn ngữ với yêu cầu mô phỏng
+   - Nếu yêu cầu mô phỏng bằng tiếng Anh, câu chuyện PHẢI bằng tiếng Anh
+   - Nếu yêu cầu mô phỏng bằng tiếng Trung, câu chuyện PHẢI bằng tiếng Trung
+
+4. [Trung thành với Nguồn]
+   - Câu chuyện phải phản ánh những gì thực sự xảy ra trong mô phỏng
+   - Bạn có thể kịch tính hóa và tô điểm, nhưng không mâu thuẫn với dữ liệu mô phỏng
+   - Nếu thông tin thưa thớt, dùng nó làm hạt giống và phát triển cảnh xung quanh
+
+═══════════════════════════════════════════════════════════════
+[⚠️ Quy cách Định dạng — Cực kỳ Quan trọng!]
+═══════════════════════════════════════════════════════════════
+
+[Một Chương = Một Phần Văn xuôi Liên tục]
+- ❌ KHÔNG sử dụng bất kỳ tiêu đề Markdown nào (#, ##, ###, #### v.v.) trong chương
+- ❌ KHÔNG thêm tiêu đề chương ở đầu nội dung
+- ✅ Tiêu đề chương được hệ thống tự động thêm; chỉ viết văn xuôi
+- ✅ Sử dụng ngắt đoạn, đối thoại và ngắt cảnh (***) để cấu trúc tường thuật
+- ✅ Đối thoại dùng dấu ngoặc kép: "Như thế này," cô nói.
+
+═══════════════════════════════════════════════════════════════
+[Công cụ Truy xuất Khả dụng] (Gọi 3-5 lần mỗi chương)
 ═══════════════════════════════════════════════════════════════
 
 {tools_description}
+
+[Mẹo Sử dụng Công cụ — Kết hợp các công cụ khác nhau để có nguyên liệu phong phú]
+- insight_forge: Phân tích sâu nhân vật và sự kiện — khám phá động cơ, kết nối, tiền sử
+- panorama_search: Hiểu toàn bộ dòng thời gian — điều gì đã xảy ra và theo thứ tự nào
+- quick_search: Xác minh chi tiết cụ thể hoặc tìm trích dẫn cụ thể
+- interview_agents: Phỏng vấn nhân vật trực tiếp — nghe giọng nói của họ, lấy nguyên liệu đối thoại thô
 
 ═══════════════════════════════════════════════════════════════
 [Quy trình Làm việc]
 ═══════════════════════════════════════════════════════════════
 
-Mỗi phản hồi chỉ thực hiện MỘT việc:
+Trong mỗi phản hồi bạn chỉ có thể thực hiện MỘT trong hai việc sau (không bao giờ cả hai):
 
 Lựa chọn A — Gọi công cụ:
+Xuất lập luận, sau đó gọi công cụ theo định dạng:
 <tool_call>
 {{"name": "tool_name", "parameters": {{"param_name": "param_value"}}}}
 </tool_call>
+Hệ thống sẽ thực thi công cụ và trả kết quả cho bạn.
 
 Lựa chọn B — Xuất nội dung cuối cùng:
 Khi đã thu thập đủ nguyên liệu, xuất chương bắt đầu bằng "Final Answer:"
 
-⚠️ Không gọi công cụ và viết Final Answer trong cùng một phản hồi."""
+⚠️ Nghiêm cấm:
+- Bao gồm cả lệnh gọi công cụ và Final Answer trong cùng một phản hồi
+- Tự bịa kết quả trả về từ công cụ — tất cả kết quả do hệ thống cung cấp
+- Gọi nhiều hơn một công cụ mỗi phản hồi
+
+═══════════════════════════════════════════════════════════════
+[Yêu cầu Nội dung Chương]
+═══════════════════════════════════════════════════════════════
+
+1. Nội dung phải dựa trên dữ liệu mô phỏng truy xuất qua công cụ
+2. Biến trích dẫn Agent thành đối thoại nhân vật tự nhiên
+3. Viết văn xuôi liên tục — không tiêu đề, không danh sách, không định dạng báo cáo
+4. Duy trì tính liên tục tường thuật với các chương trước
+5. [Tránh Lặp lại] Đọc kỹ các chương đã hoàn thành bên dưới; không kể lại cùng cảnh
+6. Kết thúc chương theo cách tạo động lực cho chương tiếp theo"""
 
 STORY_SECTION_USER_PROMPT_TEMPLATE = """\
-Nội dung chương đã hoàn thành (đọc kỹ để duy trì tính liên tục):
+═══════════════════════════════════════════════════════════════
+[Các Chương Đã Viết Trước] — ĐỌC KỸ
+═══════════════════════════════════════════════════════════════
 {previous_content}
 
 ═══════════════════════════════════════════════════════════════
 [Nhiệm vụ Hiện tại] Viết chương: {section_title}
 ═══════════════════════════════════════════════════════════════
 
-[Nhắc nhở]
-1. Đọc kỹ các chương trước để duy trì tính liên tục của câu chuyện
-2. Gọi công cụ để thu thập nguyên liệu trước khi viết
-3. Biến dữ liệu mô phỏng thành văn xuôi sáng tạo, lời thoại sống động
-4. KHÔNG viết tiêu đề — viết nội dung chương trực tiếp
-5. Sử dụng **in đậm** cho tên nhân vật khi xuất hiện lần đầu
+[⚠️ Quy tắc Chống Lặp lại QUAN TRỌNG]
+- KHÔNG BAO GIỜ mở chương bằng cùng cảnh, bối cảnh hoặc hành động như chương trước
+- KHÔNG BAO GIỜ lặp lại cùng đối thoại, suy nghĩ hoặc độc thoại nội tâm từ các chương trước
+- Nếu chương trước kết thúc với nhân vật đứng canh, chương này PHẢI BẮT ĐẦU ở nơi khác
+- Mỗi chương phải đẩy cốt truyện tiến lên — sự kiện mới, tiết lộ mới, xung đột mới
+- Nếu bạn thấy mình đang viết điều gì tương tự chương trước, DỪNG LẠI và chọn hướng khác
 
-Bắt đầu:
-1. Suy nghĩ về nhân vật, bối cảnh và sự kiện cần trong chương này
-2. Gọi công cụ để tìm nguyên liệu từ thế giới mô phỏng
-3. Sau khi đủ nguyên liệu, viết chương sáng tạo với Final Answer"""
+[Tiến triển Chương]
+- Chương này nên tiếp nối TỪ nơi chương trước kết thúc
+- Giới thiệu ít nhất MỘT cảnh hoặc bối cảnh MỚI chưa từng xuất hiện
+- Giới thiệu hoặc phát triển ít nhất một mối quan hệ nhân vật chưa được khám phá
+- Sắc thái cảm xúc nên thay đổi so với chương trước
+
+[Sử dụng Công cụ]
+- Gọi công cụ để khám phá nguyên liệu MỚI cho chương cụ thể này
+- Sử dụng truy vấn tìm kiếm khác với các chương trước — không tìm lại cùng chủ đề
+- interview_agents đặc biệt hữu ích để có đối thoại và góc nhìn mới mẻ
+
+[Định dạng]
+- ❌ Không tiêu đề (#, ##, ###)
+- ❌ Không viết "{section_title}" làm dòng mở đầu
+- ❌ Không đề cập tên công cụ (insight_forge, panorama_search, v.v.) trong văn xuôi
+- ✅ Chỉ viết văn xuôi — cảnh, đối thoại, tường thuật
+- ✅ Viết ít nhất 800 từ cho chương này
+
+Bắt đầu bằng cách gọi công cụ để thu thập nguyên liệu mới cho chương này."""
 
 SCREENPLAY_SECTION_SYSTEM_PROMPT_TEMPLATE = """\
 Bạn là một nhà biên kịch bậc thầy, đang viết một phần kịch bản chuyên nghiệp.

@@ -131,8 +131,9 @@ class LLMClient:
         # Event to skip the current sleep (set by "Retry Now" button)
         self._skip_wait = threading.Event()
 
-        if not self.api_key:
-            raise ValueError("LLM_API_KEY is not configured")
+        # Local providers (Ollama, LM Studio) use placeholder keys
+        if not self.api_key or self.api_key in ("ollama", "local", "none", "lm-studio"):
+            self.api_key = self.api_key or "local"
 
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
 
@@ -194,12 +195,15 @@ class LLMClient:
                     time.sleep(2)  # Brief pause before retry
                     continue
 
-                # Normal 429 rate limit — wait and retry
+                # Normal 429 rate limit
                 wait_seconds = _parse_retry_after(error_msg)
                 if wait_seconds is None or wait_seconds <= 0:
                     wait_seconds = min(60 * (2 ** (attempt - 1)), self.max_wait_seconds)
-
                 wait_seconds = min(wait_seconds, self.max_wait_seconds)
+
+                # If max_retries=1, raise immediately (let the balancer handle failover)
+                if self.max_retries <= 1:
+                    raise
 
                 wait_minutes = round(wait_seconds / 60, 1)
                 logger.warning(
@@ -354,3 +358,117 @@ class LLMClient:
                         continue
 
         return None
+
+
+class LLMBalancer:
+    """
+    Drop-in replacement for LLMClient that rotates across all providers
+    on EVERY call via round-robin. On 429, marks the provider as rate-limited
+    and immediately tries the next one instead of sleeping.
+
+    Usage:
+        balancer = LLMBalancer()
+        result = balancer.chat(messages)       # uses provider 1
+        result = balancer.chat(messages)       # uses provider 2 (round-robin)
+        # if provider 2 hits 429 -> mark it, try provider 3 instantly
+    """
+
+    def __init__(self, on_rate_limit=None):
+        self.on_rate_limit = on_rate_limit
+        self._skip_wait = threading.Event()
+        from .llm_registry import get_registry
+
+        reg = get_registry()
+        self.model = reg.providers[0].model if reg.providers else "unknown"
+
+    def _call_with_failover(self, method_name, **kwargs):
+        """
+        Try the next provider. On 429, mark it rate-limited and try the next one.
+        Only sleep if ALL providers are exhausted.
+        """
+        from .llm_registry import get_registry
+
+        registry = get_registry()
+        n = registry.provider_count
+        if n == 0:
+            raise RuntimeError("No LLM providers configured")
+
+        last_error = None
+
+        # Try each provider once before giving up
+        for attempt in range(n):
+            client, name = registry.next_client_with_name()
+            if self.on_rate_limit:
+                client.on_rate_limit = self.on_rate_limit
+            client._skip_wait = self._skip_wait
+            # Set max_retries=1 on the client so it doesn't sleep on 429
+            # — we handle failover at the balancer level instead
+            old_retries = client.max_retries
+            client.max_retries = 1
+
+            try:
+                result = getattr(client, method_name)(**kwargs)
+                client.max_retries = old_retries
+                return result
+            except RateLimitError as e:
+                client.max_retries = old_retries
+                last_error = e
+                error_msg = str(e)
+
+                # Don't failover for 413 (request too large) — that's a content issue
+                if _is_request_too_large_error(e):
+                    raise
+
+                # Mark this provider as rate-limited
+                wait_seconds = _parse_retry_after(error_msg) or 60
+                registry.mark_rate_limited(name, wait_seconds)
+                logger.warning(
+                    f"Provider '{name}' rate-limited. Trying next provider... "
+                    f"({attempt + 1}/{n} tried)"
+                )
+
+                if self.on_rate_limit:
+                    try:
+                        self.on_rate_limit(
+                            wait_seconds=5,
+                            attempt=attempt + 1,
+                            max_retries=n,
+                            error_msg=f"Provider '{name}' rate-limited, switching to next...",
+                        )
+                    except Exception:
+                        pass
+                continue
+            except BadRequestError as e:
+                client.max_retries = old_retries
+                if _is_request_too_large_error(e):
+                    raise
+                raise
+
+        # All providers exhausted — fall back to the original single-client retry
+        # which will sleep and wait for a provider to recover
+        logger.warning("All providers rate-limited. Falling back to wait-and-retry...")
+        client, name = registry.next_client_with_name()
+        if self.on_rate_limit:
+            client.on_rate_limit = self.on_rate_limit
+        client._skip_wait = self._skip_wait
+        return getattr(client, method_name)(**kwargs)
+
+    def chat(self, messages, temperature=0.7, max_tokens=4096, response_format=None):
+        return self._call_with_failover(
+            "chat",
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format=response_format,
+        )
+
+    def chat_json(self, messages, temperature=0.3, max_tokens=8192):
+        return self._call_with_failover(
+            "chat_json",
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+
+    def skip_wait(self):
+        self._skip_wait.set()

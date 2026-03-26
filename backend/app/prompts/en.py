@@ -959,34 +959,33 @@ Think about narrative arc — setup, rising action, climax, falling action, reso
 We have built a simulated world populated by Agents who act, speak, and interact. You have a "God's-eye view" of everything that happened. Your job is not to write a report — it is to craft a compelling story that brings the simulation to life as narrative fiction.
 
 [Your Task]
-Plan 3-5 chapters that form a complete narrative arc:
-1. Establish the world, characters, and stakes
-2. Build tension through conflict and complication
-3. Reach a dramatic turning point
-4. Resolve (or deliberately leave unresolved) the central tension
+Plan the chapters for a complete narrative story. The user's premise will specify the desired number of chapters. Follow their request exactly.
 
-[Chapter Count Limits]
-- Minimum 3 chapters, maximum 5 chapters
+[Important Rules]
+- If the user asks for N chapters, you MUST produce exactly N chapters
 - Each chapter should have a clear dramatic purpose in the overall arc
 - Chapter titles should be evocative and literary, not clinical
+- Distribute the narrative arc across ALL chapters (don't rush the ending)
+- For long stories (8+ chapters), develop subplots and secondary character arcs
 
 Please output a story outline in JSON format:
-{
+{{
     "title": "Story Title",
     "summary": "One-sentence hook that captures the story's essence",
     "sections": [
-        {
+        {{
             "title": "Chapter Title",
             "description": "What happens in this chapter and its narrative purpose"
-        }
+        }}
     ]
-}
+}}
 
-Note: The sections array must contain at least 3 and at most 5 elements!"""
+CRITICAL: The number of items in the sections array MUST match the user's requested chapter count."""
 
 STORY_PLAN_USER_PROMPT_TEMPLATE = """\
 [The Simulated World]
-Premise injected into the simulation: {simulation_requirement}
+Premise and instructions from the user:
+{simulation_requirement}
 
 [World Scale]
 - Characters and entities in this world: {total_nodes}
@@ -997,14 +996,14 @@ Premise injected into the simulation: {simulation_requirement}
 [Raw Material — Events and Facts from the Simulation]
 {related_facts_json}
 
-Based on this simulated world, plan a compelling story:
+Based on this simulated world and the user's premise above, plan a compelling story:
 1. Who are the most interesting characters? What drives them?
 2. What conflicts, alliances, and turning points emerged?
 3. What is the emotional core — what is this story really about?
 
 Design chapters that weave these elements into a gripping narrative. Give the story a literary title that captures its essence.
 
-[Reminder] Chapter count: minimum 3, maximum 5. Each chapter should serve a clear purpose in the narrative arc."""
+IMPORTANT: Read the user's premise carefully. If they specified a number of chapters (e.g., "10 chapters", "5 chapters"), you MUST produce EXACTLY that many chapters in the sections array. Do not produce fewer."""
 
 # ── Story section generation prompts ──
 
@@ -1029,6 +1028,7 @@ Write this chapter with the skill of a published novelist:
 - **Show, don't tell** — convey emotions through actions, gestures, and physical sensations, not labels
 - **Pacing** — vary sentence length; alternate between action and reflection; let scenes breathe
 - **Thematic resonance** — let the deeper meaning emerge through story, never through lecturing
+- **Length** — each chapter should be at least 800-1500 words of rich prose. Do not write short summaries
 
 The simulation data is your raw material. Transform facts into scenes, agent statements into dialogue, relationships into dramatic tension.
 
@@ -1050,6 +1050,8 @@ The simulation data is your raw material. Transform facts into scenes, agent sta
    - Relationships become dramatic connections
    - Events become scenes with setting, action, and consequence
    - Statistics become lived experience
+   - NEVER mention tool names in the prose (no "insight_forge", "panorama_search", etc.)
+   - NEVER write "According to the tool..." — seamlessly weave the information into narrative
 
 3. [Language Consistency]
    - Detect the language of the simulation requirement
@@ -1118,29 +1120,41 @@ When you have gathered enough material, output the chapter starting with "Final 
 6. End the chapter in a way that creates momentum for the next"""
 
 STORY_SECTION_USER_PROMPT_TEMPLATE = """\
-Completed chapters so far (read carefully — do not repeat scenes or dialogue):
+═══════════════════════════════════════════════════════════════
+[Previously Written Chapters] — READ CAREFULLY
+═══════════════════════════════════════════════════════════════
 {previous_content}
 
 ═══════════════════════════════════════════════════════════════
-[Current Task] Write chapter: {section_title}
+[Your Task Now] Write chapter: {section_title}
 ═══════════════════════════════════════════════════════════════
 
-[Important Reminders]
-1. Read the completed chapters above — do not retell the same events!
-2. You must call tools to gather material before writing
-3. Mix different tools for richer source material
-4. All story content must be grounded in simulation data
+[⚠️ CRITICAL Anti-Repetition Rules]
+- NEVER open a chapter with the same scene, setting, or action as a previous chapter
+- NEVER repeat the same dialogue, thoughts, or internal monologue from earlier chapters
+- If a previous chapter ended with a character standing guard, this chapter must START somewhere different
+- Each chapter must advance the plot — new events, new revelations, new conflicts
+- If you find yourself writing something similar to a previous chapter, STOP and take a different approach
 
-[⚠️ Format Warning — Must Follow]
-- ❌ Do not write any headings (#, ##, ###, #### are all forbidden)
+[Chapter Progression]
+- This chapter should pick up WHERE the previous chapter left off
+- Introduce at least one NEW scene or setting not seen before
+- Introduce or develop at least one character relationship that wasn't explored yet
+- The emotional tone should shift from the previous chapter
+
+[Tool Usage]
+- Call tools to discover NEW material for this specific chapter
+- Use different search queries than previous chapters — don't re-search the same topics
+- interview_agents is especially useful for getting fresh dialogue and perspectives
+
+[Format]
+- ❌ No headings (#, ##, ###)
 - ❌ Do not write "{section_title}" as the opening line
-- ✅ Chapter titles are automatically added by the system
-- ✅ Write prose directly — scenes, dialogue, narrative
+- ❌ Do not mention tool names (insight_forge, panorama_search, etc.) in the prose
+- ✅ Write prose only — scenes, dialogue, narrative
+- ✅ Write at least 800 words for this chapter
 
-Begin:
-1. First, think about what material you need for this chapter
-2. Then call a tool to gather source material from the simulated world
-3. After gathering enough material, output Final Answer (prose only, no headings)"""
+Begin by calling a tool to gather fresh material for this chapter."""
 
 SCREENPLAY_SECTION_SYSTEM_PROMPT_TEMPLATE = """\
 You are a screenwriter crafting a chapter of a screenplay. Write in proper screenplay format.

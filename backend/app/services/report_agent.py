@@ -521,8 +521,9 @@ class ReportAgent:
         self.mode = mode
         self.story_format = story_format
 
-        self.llm = llm_client or LLMClient()
-        self.llm.on_rate_limit = self._on_rate_limit
+        from app.utils.llm_client import LLMBalancer
+
+        self.llm = llm_client or LLMBalancer(on_rate_limit=self._on_rate_limit)
         self.zep_tools = zep_tools or ZepToolsService()
 
         # Tool definitions
@@ -556,6 +557,14 @@ class ReportAgent:
                     "max_retries": max_retries,
                 },
             )
+        # Mark the provider as rate-limited in the registry
+        from app.utils.llm_registry import get_registry
+
+        for p in get_registry().providers:
+            c = get_registry().get_client(p.name)
+            if c is self.llm:
+                get_registry().mark_rate_limited(p.name, wait_seconds)
+                break
 
     def _define_tools(self) -> Dict[str, Dict[str, Any]]:
         """Define available tools."""

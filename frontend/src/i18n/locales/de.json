@@ -430,7 +430,10 @@
     "retryConfig": "Automatische Wiederholung",
     "availableModels": "Verfügbare Modelle",
     "modelsFound": "Modelle in Ihrem aktuellen Tarif verfügbar",
-    "currentModel": "AKTIV"
+    "currentModel": "AKTIV",
+    "llmProviders": "LLM-Anbieter",
+    "providers": "Anbieter",
+    "providerCount": "Anbieteranzahl"
   },
   "logs": {
     "step2Init": "Step2 Umgebungseinrichtung Initialisierung",

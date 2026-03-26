@@ -2364,12 +2364,14 @@ const regenerateReport = async () => {
     })
 
     if (res.data?.success && res.data?.data?.report_id) {
-      // Update the report ID if a new one was assigned
       const newReportId = res.data.data.report_id
+      // Tell parent to update the prop
       emit('update-report-id', newReportId)
+      // Wait for Vue to process the prop update
+      await nextTick()
     }
 
-    // Restart polling
+    // Restart polling (will now use the updated props.reportId)
     startPolling()
   } catch (err) {
     console.error('Regenerate report failed:', err)

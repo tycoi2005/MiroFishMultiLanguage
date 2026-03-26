@@ -13,154 +13,71 @@ health_bp = Blueprint("health", __name__)
 
 
 def _check_llm_api():
-    """Check LLM API health by sending a minimal request."""
-    result = {
-        "name": "LLM API",
-        "configured": bool(Config.LLM_API_KEY),
-        "base_url": Config.LLM_BASE_URL or "Not set",
-        "model": Config.LLM_MODEL_NAME or "Not set",
-        "status": "unknown",
-        "latency_ms": None,
-        "error": None,
-        "rate_limit": None,
-    }
+    """Check LLM API health using the provider registry.
 
-    if not Config.LLM_API_KEY:
-        result["status"] = "not_configured"
-        result["error"] = "LLM_API_KEY is not set"
-        return result
+    Tests the next round-robin client and returns per-provider status.
+    """
+    from app.utils.llm_registry import get_registry
 
-    try:
-        from openai import (
-            OpenAI,
-            RateLimitError,
-            AuthenticationError,
-            APIConnectionError,
-        )
+    registry = get_registry()
 
-        client = OpenAI(api_key=Config.LLM_API_KEY, base_url=Config.LLM_BASE_URL)
+    if registry.provider_count == 0:
+        return {
+            "name": "LLM API",
+            "configured": False,
+            "status": "not_configured",
+            "error": "No LLM providers configured",
+            "providers": [],
+        }
 
-        start = time.time()
-        raw = client.chat.completions.with_raw_response.create(
-            model=Config.LLM_MODEL_NAME,
-            messages=[{"role": "user", "content": "Say OK"}],
-            max_tokens=3,
-            temperature=0,
-        )
-        latency = int((time.time() - start) * 1000)
+    from openai import (
+        OpenAI,
+        RateLimitError,
+        AuthenticationError,
+        APIConnectionError,
+    )
+    from ..utils.llm_client import _parse_retry_after
 
-        result["status"] = "healthy"
-        result["latency_ms"] = latency
+    # Test each provider individually
+    providers_status = []
+    overall_healthy = False
 
-        # Extract rate limit info from response headers
+    for pconfig in registry.providers:
+        pstatus = {
+            "name": pconfig.name,
+            "base_url": pconfig.base_url,
+            "model": pconfig.model,
+            "is_local": pconfig.is_local,
+            "status": "unknown",
+            "latency_ms": None,
+            "error": None,
+            "rate_limit": None,
+        }
+
         try:
-            headers = raw.headers
-            rate_info = {}
-            for header in [
-                "x-ratelimit-limit-requests",
-                "x-ratelimit-limit-tokens",
-                "x-ratelimit-remaining-requests",
-                "x-ratelimit-remaining-tokens",
-                "x-ratelimit-reset-requests",
-                "x-ratelimit-reset-tokens",
-            ]:
-                val = headers.get(header)
-                if val is not None:
-                    key = header.replace("x-ratelimit-", "").replace("-", "_")
-                    rate_info[key] = val
-            if rate_info:
-                result["rate_limit"] = rate_info
-        except Exception:
-            pass
+            api_key = pconfig.api_key
+            if pconfig.is_local and not api_key:
+                api_key = "local"
 
-    except RateLimitError as e:
-        result["status"] = "rate_limited"
-        result["error"] = str(e)
-        # Parse remaining wait time
-        from ..utils.llm_client import _parse_retry_after
+            client = OpenAI(api_key=api_key, base_url=pconfig.base_url)
 
-        wait = _parse_retry_after(str(e))
-        if wait:
-            result["rate_limit"] = {"retry_after_seconds": wait}
+            start = time.time()
+            raw = client.chat.completions.with_raw_response.create(
+                model=pconfig.model,
+                messages=[{"role": "user", "content": "Say OK"}],
+                max_tokens=3,
+                temperature=0,
+            )
+            latency = int((time.time() - start) * 1000)
 
-    except AuthenticationError as e:
-        result["status"] = "auth_error"
-        result["error"] = f"Authentication failed: {str(e)}"
+            pstatus["status"] = "healthy"
+            pstatus["latency_ms"] = latency
+            overall_healthy = True
 
-    except APIConnectionError as e:
-        result["status"] = "connection_error"
-        result["error"] = f"Cannot connect to {Config.LLM_BASE_URL}: {str(e)}"
-
-    except Exception as e:
-        result["status"] = "error"
-        result["error"] = str(e)
-
-    return result
-
-
-def _list_available_models():
-    """List available chat models from the LLM API provider with rate limit info."""
-    if not Config.LLM_API_KEY:
-        return []
-
-    try:
-        from openai import OpenAI, RateLimitError
-
-        client = OpenAI(api_key=Config.LLM_API_KEY, base_url=Config.LLM_BASE_URL)
-        response = client.models.list()
-
-        # Filter to chat-capable models only (exclude image, audio, embedding, video)
-        EXCLUDE_PREFIXES = (
-            "models/imagen",
-            "models/veo",
-            "models/lyria",
-            "models/gemini-embedding",
-            "models/gemma",
-            "models/nano",
-            "models/gemini-robotics",
-        )
-        EXCLUDE_CONTAINS = (
-            "tts",
-            "audio",
-            "image",
-            "embedding",
-        )
-
-        chat_models = []
-        for model in response.data:
-            model_id = model.id
-            if any(model_id.startswith(p) for p in EXCLUDE_PREFIXES):
-                continue
-            if any(kw in model_id.lower() for kw in EXCLUDE_CONTAINS):
-                continue
-            info = {
-                "id": model_id,
-                "owned_by": getattr(model, "owned_by", None),
-            }
-            chat_models.append(info)
-
-        chat_models.sort(key=lambda m: m["id"])
-
-        # Test rate limits for up to 3 key models (active model + first 2 others)
-        # by sending a minimal request and reading response headers
-        models_to_test = set()
-        models_to_test.add(Config.LLM_MODEL_NAME)
-        for m in chat_models[:5]:
-            if len(models_to_test) >= 3:
-                break
-            models_to_test.add(m["id"])
-
-        rate_limits_by_model = {}
-        for model_id in models_to_test:
+            # Extract rate limit info from response headers
             try:
-                raw = client.chat.completions.with_raw_response.create(
-                    model=model_id,
-                    messages=[{"role": "user", "content": "hi"}],
-                    max_tokens=1,
-                    temperature=0,
-                )
                 headers = raw.headers
-                limits = {}
+                rate_info = {}
                 for header in [
                     "x-ratelimit-limit-requests",
                     "x-ratelimit-limit-tokens",
@@ -172,39 +89,119 @@ def _list_available_models():
                     val = headers.get(header)
                     if val is not None:
                         key = header.replace("x-ratelimit-", "").replace("-", "_")
-                        limits[key] = val
-                if limits:
-                    rate_limits_by_model[model_id] = limits
-                else:
-                    rate_limits_by_model[model_id] = {"status": "ok"}
-            except RateLimitError as e:
-                err_msg = str(e)
-                from ..utils.llm_client import _parse_retry_after
+                        rate_info[key] = val
+                if rate_info:
+                    pstatus["rate_limit"] = rate_info
+            except Exception:
+                pass
 
-                wait = _parse_retry_after(err_msg)
-                rate_limits_by_model[model_id] = {
-                    "status": "rate_limited",
-                    "retry_after_seconds": wait,
-                    "message": "Quota exceeded"
-                    if "quota" in err_msg.lower()
-                    else "Rate limited",
+        except RateLimitError as e:
+            pstatus["status"] = "rate_limited"
+            pstatus["error"] = str(e)
+            wait = _parse_retry_after(str(e))
+            if wait:
+                pstatus["rate_limit"] = {"retry_after_seconds": wait}
+
+        except AuthenticationError as e:
+            pstatus["status"] = "auth_error"
+            pstatus["error"] = f"Authentication failed: {str(e)}"
+
+        except APIConnectionError as e:
+            pstatus["status"] = "connection_error"
+            pstatus["error"] = f"Cannot connect to {pconfig.base_url}: {str(e)}"
+
+        except Exception as e:
+            pstatus["status"] = "error"
+            pstatus["error"] = str(e)
+
+        providers_status.append(pstatus)
+
+    # Build the summary result (backwards compatible)
+    first_healthy = next(
+        (p for p in providers_status if p["status"] == "healthy"), None
+    )
+    representative = first_healthy or providers_status[0]
+
+    result = {
+        "name": "LLM API",
+        "configured": True,
+        "provider_count": registry.provider_count,
+        "base_url": representative["base_url"],
+        "model": representative["model"],
+        "status": "healthy" if overall_healthy else representative["status"],
+        "latency_ms": representative.get("latency_ms"),
+        "error": None if overall_healthy else representative.get("error"),
+        "rate_limit": representative.get("rate_limit"),
+        "providers": providers_status,
+    }
+
+    return result
+
+
+def _list_available_models():
+    """List available chat models from ALL configured providers."""
+    from app.utils.llm_registry import get_registry
+    from openai import OpenAI
+
+    registry = get_registry()
+    if registry.provider_count == 0:
+        return []
+
+    EXCLUDE_PREFIXES = (
+        "models/imagen",
+        "models/veo",
+        "models/lyria",
+        "models/gemini-embedding",
+        "models/gemma",
+        "models/nano",
+        "models/gemini-robotics",
+    )
+    EXCLUDE_CONTAINS = (
+        "tts",
+        "audio",
+        "image",
+        "embedding",
+    )
+
+    all_models = []
+    seen_ids = set()
+
+    for pconfig in registry.providers:
+        try:
+            api_key = pconfig.api_key or "local"
+            client = OpenAI(api_key=api_key, base_url=pconfig.base_url)
+            response = client.models.list()
+
+            for model in response.data:
+                model_id = model.id
+                if any(model_id.startswith(p) for p in EXCLUDE_PREFIXES):
+                    continue
+                if any(kw in model_id.lower() for kw in EXCLUDE_CONTAINS):
+                    continue
+                # Deduplicate across providers
+                dedup_key = f"{pconfig.name}:{model_id}"
+                if dedup_key in seen_ids:
+                    continue
+                seen_ids.add(dedup_key)
+
+                all_models.append(
+                    {
+                        "id": model_id,
+                        "provider": pconfig.name,
+                        "owned_by": getattr(model, "owned_by", None),
+                    }
+                )
+        except Exception as e:
+            logger.warning(f"Failed to list models from {pconfig.name}: {str(e)[:100]}")
+            all_models.append(
+                {
+                    "provider": pconfig.name,
+                    "error": f"Cannot list models: {str(e)[:100]}",
                 }
-            except Exception as e:
-                rate_limits_by_model[model_id] = {
-                    "status": "error",
-                    "message": str(e)[:120],
-                }
+            )
 
-        # Attach rate limit info to model entries
-        for m in chat_models:
-            if m["id"] in rate_limits_by_model:
-                m["rate_limit"] = rate_limits_by_model[m["id"]]
-
-        return chat_models
-
-    except Exception as e:
-        logger.warning(f"Failed to list models: {str(e)}")
-        return [{"error": str(e)}]
+    all_models.sort(key=lambda m: (m.get("provider", ""), m.get("id", "")))
+    return all_models
 
 
 def _check_zep_api():
@@ -255,10 +252,13 @@ def api_health_check():
     Full API health check.
     Returns status of LLM API and Zep API including rate limits.
     """
+    from app.utils.llm_registry import get_registry
+
     llm_result = _check_llm_api()
     zep_result = _check_zep_api()
     available_models = _list_available_models()
 
+    registry = get_registry()
     all_healthy = (
         llm_result["status"] == "healthy" and zep_result["status"] == "healthy"
     )
@@ -269,8 +269,8 @@ def api_health_check():
             "services": [llm_result, zep_result],
             "available_models": available_models,
             "config": {
-                "llm_model": Config.LLM_MODEL_NAME,
-                "llm_base_url": Config.LLM_BASE_URL,
+                "provider_count": registry.provider_count,
+                "providers": [p.to_dict() for p in registry.providers],
                 "max_retries": 3,
                 "max_wait_seconds": 900,
             },

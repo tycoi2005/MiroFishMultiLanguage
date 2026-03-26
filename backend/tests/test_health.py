@@ -78,8 +78,8 @@ class TestHealthEndpoint:
         data = response.get_json()
         assert "config" in data
         config = data["config"]
-        assert "llm_model" in config
-        assert "llm_base_url" in config
+        assert "provider_count" in config
+        assert "providers" in config
         assert "max_retries" in config
         assert "max_wait_seconds" in config
 

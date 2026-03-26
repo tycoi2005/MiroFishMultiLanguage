@@ -600,10 +600,12 @@ class ZepToolsService:
         logger.info("ZepToolsService initialized")
 
     @property
-    def llm(self) -> LLMClient:
-        """延迟初始化LLM客户端"""
+    def llm(self):
+        """Lazy-init LLMBalancer for per-call round-robin."""
         if self._llm_client is None:
-            self._llm_client = LLMClient()
+            from app.utils.llm_client import LLMBalancer
+
+            self._llm_client = LLMBalancer()
         return self._llm_client
 
     def _call_with_retry(self, func, operation_name: str, max_retries: int = None):
@@ -649,9 +651,16 @@ class ZepToolsService:
         Returns:
             SearchResult: 搜索结果
         """
+        # Zep API limits query to 400 characters
+        ZEP_MAX_QUERY_LEN = 400
+        if len(query) > ZEP_MAX_QUERY_LEN:
+            logger.info(
+                f"Truncating search query from {len(query)} to {ZEP_MAX_QUERY_LEN} chars"
+            )
+            query = query[:ZEP_MAX_QUERY_LEN]
+
         logger.info(f"Graph search: graph_id={graph_id}, query={query[:50]}...")
 
-        # 尝试使用Zep Cloud Search API
         try:
             search_results = self._call_with_retry(
                 func=lambda: self.client.graph.search(
