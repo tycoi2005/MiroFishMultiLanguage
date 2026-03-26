@@ -1,15 +1,18 @@
 """
 LLM client wrapper.
-Unified OpenAI-format API calls with automatic 429 rate-limit retry.
+Unified OpenAI-format API calls with automatic retry for:
+  - 429 Rate Limit: wait and retry
+  - 413 Request Too Large: truncate messages and retry
 """
 
 import json
 import logging
 import re
+import threading
 import time
 from typing import Optional, Dict, Any, List
 
-from openai import OpenAI, RateLimitError
+from openai import OpenAI, RateLimitError, BadRequestError
 
 from ..config import Config
 
@@ -43,6 +46,63 @@ def _parse_retry_after(error_message: str) -> Optional[int]:
     return int(total) + 1  # +1 for safety margin
 
 
+def _is_request_too_large_error(error: Exception) -> bool:
+    """Check if an error is a 413/request-too-large error (including Groq's 413-as-rate-limit)."""
+    msg = str(error).lower()
+    return (
+        "413" in msg
+        or "request too large" in msg
+        or ("rate_limit" in msg and "reduce your message size" in msg)
+    )
+
+
+def _truncate_messages(
+    messages: List[Dict[str, str]], reduction_ratio: float = 0.6
+) -> List[Dict[str, str]]:
+    """
+    Truncate the longest user/assistant message to reduce total token count.
+
+    Strategy:
+    1. Never touch the system message (index 0)
+    2. Find the longest non-system message by character count
+    3. Truncate it to reduction_ratio of its current length
+    4. Add a note that content was truncated
+
+    Returns a new list (does not modify the original).
+    """
+    if len(messages) <= 1:
+        return messages
+
+    result = [m.copy() for m in messages]
+
+    # Find the longest non-system message
+    max_len = 0
+    max_idx = -1
+    for i, m in enumerate(result):
+        if m.get("role") == "system":
+            continue
+        content = m.get("content", "")
+        if len(content) > max_len:
+            max_len = len(content)
+            max_idx = i
+
+    if max_idx < 0 or max_len < 200:
+        return result  # Nothing useful to truncate
+
+    content = result[max_idx]["content"]
+    new_len = int(len(content) * reduction_ratio)
+    result[max_idx] = result[max_idx].copy()
+    result[max_idx]["content"] = (
+        content[:new_len]
+        + f"\n\n... [Content truncated from {len(content)} to {new_len} chars to fit model context limit]"
+    )
+
+    logger.info(
+        f"Truncated message at index {max_idx} from {len(content)} to {new_len} chars"
+    )
+    return result
+
+
 class LLMClient:
     """LLM client with automatic rate-limit retry."""
 
@@ -68,6 +128,9 @@ class LLMClient:
         self.max_wait_seconds = max_wait_seconds
         self.on_rate_limit = on_rate_limit
 
+        # Event to skip the current sleep (set by "Retry Now" button)
+        self._skip_wait = threading.Event()
+
         if not self.api_key:
             raise ValueError("LLM_API_KEY is not configured")
 
@@ -81,14 +144,14 @@ class LLMClient:
         response_format: Optional[Dict] = None,
     ) -> str:
         """
-        Send a chat request with automatic retry on 429 rate limit errors.
-
-        Parses the retry-after time from the error message, waits, and retries
-        up to max_retries times.
+        Send a chat request with automatic retry:
+          - 429 Rate Limit: parse retry-after, wait, retry
+          - 413 Request Too Large: truncate longest message, retry immediately
         """
+        current_messages = list(messages)
+
         kwargs = {
             "model": self.model,
-            "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
@@ -99,21 +162,43 @@ class LLMClient:
         last_error = None
         for attempt in range(1, self.max_retries + 1):
             try:
+                kwargs["messages"] = current_messages
                 response = self.client.chat.completions.create(**kwargs)
                 content = response.choices[0].message.content
                 # Some models include <think> tags — strip them
                 content = re.sub(r"<think>[\s\S]*?</think>", "", content).strip()
                 return content
+
             except RateLimitError as e:
                 last_error = e
                 error_msg = str(e)
 
-                # Parse suggested wait time from error
+                # Check if this is actually a 413 "request too large" disguised as rate limit
+                if _is_request_too_large_error(e):
+                    logger.warning(
+                        f"Request too large (413). Attempt {attempt}/{self.max_retries}. "
+                        f"Truncating messages and retrying..."
+                    )
+                    current_messages = _truncate_messages(current_messages)
+
+                    if self.on_rate_limit:
+                        try:
+                            self.on_rate_limit(
+                                wait_seconds=5,
+                                attempt=attempt,
+                                max_retries=self.max_retries,
+                                error_msg="Request too large — auto-truncating and retrying...",
+                            )
+                        except Exception:
+                            pass
+                    time.sleep(2)  # Brief pause before retry
+                    continue
+
+                # Normal 429 rate limit — wait and retry
                 wait_seconds = _parse_retry_after(error_msg)
                 if wait_seconds is None or wait_seconds <= 0:
                     wait_seconds = min(60 * (2 ** (attempt - 1)), self.max_wait_seconds)
 
-                # Cap the wait time
                 wait_seconds = min(wait_seconds, self.max_wait_seconds)
 
                 wait_minutes = round(wait_seconds / 60, 1)
@@ -122,7 +207,6 @@ class LLMClient:
                     f"Waiting {wait_minutes} min before retry..."
                 )
 
-                # Notify caller (e.g. report agent can log to UI)
                 if self.on_rate_limit:
                     try:
                         self.on_rate_limit(
@@ -132,12 +216,33 @@ class LLMClient:
                             error_msg=error_msg,
                         )
                     except Exception:
-                        pass  # Don't let callback errors break retry
+                        pass
 
-                time.sleep(wait_seconds)
+                # Interruptible sleep — can be skipped by calling skip_wait()
+                self._skip_wait.clear()
+                skipped = self._skip_wait.wait(timeout=wait_seconds)
+                if skipped:
+                    logger.info("Wait skipped by manual retry request")
+
+            except BadRequestError as e:
+                # Some providers return 413 as a BadRequestError
+                if _is_request_too_large_error(e):
+                    last_error = e
+                    logger.warning(
+                        f"Request too large (BadRequest/413). Attempt {attempt}/{self.max_retries}. "
+                        f"Truncating messages and retrying..."
+                    )
+                    current_messages = _truncate_messages(current_messages)
+                    time.sleep(2)
+                    continue
+                raise  # Re-raise non-size-related bad requests
 
         # All retries exhausted
         raise last_error
+
+    def skip_wait(self):
+        """Skip the current rate-limit sleep. Called by 'Retry Now' button."""
+        self._skip_wait.set()
 
     def chat_json(
         self,

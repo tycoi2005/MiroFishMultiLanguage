@@ -1,12 +1,16 @@
 """
-Unit tests for LLM rate-limit retry logic.
+Unit tests for LLM rate-limit and request-too-large retry logic.
 
 Run with:
     cd backend && uv run pytest tests/test_rate_limit_retry.py -v
 """
 
 import pytest
-from app.utils.llm_client import _parse_retry_after
+from app.utils.llm_client import (
+    _parse_retry_after,
+    _is_request_too_large_error,
+    _truncate_messages,
+)
 
 
 class TestParseRetryAfter:
@@ -131,3 +135,95 @@ class TestReportAgentRateLimitCallback:
         cb = agent.llm.on_rate_limit
         assert hasattr(cb, "__func__")
         assert cb.__func__.__name__ == "_on_rate_limit"
+
+
+class TestRequestTooLargeDetection:
+    """Test detection of 413 / request-too-large errors."""
+
+    def test_groq_413_as_rate_limit(self):
+        """Groq sends 413 as a rate limit error with 'reduce your message size'."""
+        msg = (
+            "Error code: 413 - {'error': {'message': 'Request too large for model "
+            "llama-3.3-70b-versatile in organization org_01 service tier on_demand "
+            "on tokens per minute (TPM): Limit 12000, Requested 12070, please "
+            "reduce your message size and try again.'}}"
+        )
+        # Create a fake exception
+        err = Exception(msg)
+        assert _is_request_too_large_error(err)
+
+    def test_plain_413(self):
+        err = Exception("Error code: 413 - request too large")
+        assert _is_request_too_large_error(err)
+
+    def test_normal_429_not_detected_as_413(self):
+        err = Exception(
+            "Error code: 429 - Rate limit reached for model. "
+            "Please try again in 50m24s."
+        )
+        assert not _is_request_too_large_error(err)
+
+    def test_unrelated_error_not_detected(self):
+        err = Exception("Connection refused")
+        assert not _is_request_too_large_error(err)
+
+
+class TestTruncateMessages:
+    """Test the message truncation helper."""
+
+    def test_truncates_longest_message(self):
+        messages = [
+            {"role": "system", "content": "You are a helper."},
+            {"role": "user", "content": "A" * 1000},
+            {"role": "assistant", "content": "B" * 5000},
+            {"role": "user", "content": "C" * 200},
+        ]
+        result = _truncate_messages(messages, reduction_ratio=0.5)
+        # The assistant message (5000 chars) should be truncated
+        assert len(result[2]["content"]) < 5000
+        # System message untouched
+        assert result[0]["content"] == "You are a helper."
+        # Other messages untouched
+        assert result[1]["content"] == "A" * 1000
+        assert result[3]["content"] == "C" * 200
+
+    def test_never_truncates_system_message(self):
+        messages = [
+            {"role": "system", "content": "X" * 10000},
+            {"role": "user", "content": "short"},
+        ]
+        result = _truncate_messages(messages, reduction_ratio=0.5)
+        # System message should be untouched, user message too short to truncate
+        assert result[0]["content"] == "X" * 10000
+
+    def test_returns_new_list(self):
+        messages = [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "A" * 500},
+        ]
+        result = _truncate_messages(messages)
+        assert result is not messages
+        # Original should not be modified
+        assert len(messages[1]["content"]) == 500
+
+    def test_adds_truncation_note(self):
+        messages = [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "A" * 2000},
+        ]
+        result = _truncate_messages(messages, reduction_ratio=0.5)
+        assert "truncated" in result[1]["content"].lower()
+        assert "1000" in result[1]["content"]  # new length ~1000
+
+    def test_single_message_returns_as_is(self):
+        messages = [{"role": "system", "content": "only one"}]
+        result = _truncate_messages(messages)
+        assert result == messages
+
+    def test_short_messages_not_truncated(self):
+        messages = [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "short msg"},
+        ]
+        result = _truncate_messages(messages)
+        assert result[1]["content"] == "short msg"

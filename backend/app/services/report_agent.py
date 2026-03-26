@@ -485,8 +485,10 @@ class ReportAgent:
     # 对话中的最大工具调用次数
     MAX_TOOL_CALLS_PER_CHAT = 2
 
-    # 工具结果最大字符数（报告生成时），避免超出 LLM 上下文/TPM 限制
-    MAX_TOOL_RESULT_CHARS = 12000
+    # Max chars for tool results during report generation.
+    # Lowered from 12000 to 6000 to prevent 413 "request too large" errors
+    # on free-tier APIs with 12K TPM limits (e.g., Groq).
+    MAX_TOOL_RESULT_CHARS = 6000
 
     def __init__(
         self,

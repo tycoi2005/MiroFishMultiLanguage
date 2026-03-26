@@ -309,7 +309,8 @@
     "generating": "Generating...",
     "error": "Error",
     "generatingSection": "Generating {title}...",
-    "enterInteraction": "Enter Deep Interaction"
+    "enterInteraction": "Enter Deep Interaction",
+    "regenerate": "Regenerate Report"
   },
   "step5": {
     "predictionReport": "Prediction Report",
@@ -423,7 +424,10 @@
     "latency": "Latency",
     "rateLimits": "Rate Limits",
     "configTitle": "Configuration",
-    "retryConfig": "Auto-Retry"
+    "retryConfig": "Auto-Retry",
+    "availableModels": "Available Models",
+    "modelsFound": "models available in your current tier",
+    "currentModel": "ACTIVE"
   },
   "logs": {
     "step2Init": "Step2 Environment Setup initialization",

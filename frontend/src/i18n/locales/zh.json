@@ -309,7 +309,8 @@
     "generating": "Generating...",
     "error": "Error",
     "generatingSection": "正在生成{title}...",
-    "enterInteraction": "进入深度互动"
+    "enterInteraction": "进入深度互动",
+    "regenerate": "重新生成报告"
   },
   "step5": {
     "predictionReport": "Prediction Report",
@@ -423,7 +424,10 @@
     "latency": "延迟",
     "rateLimits": "速率限制",
     "configTitle": "配置信息",
-    "retryConfig": "自动重试"
+    "retryConfig": "自动重试",
+    "availableModels": "可用模型",
+    "modelsFound": "个模型可用于当前层级",
+    "currentModel": "使用中"
   },
   "logs": {
     "step2Init": "Step2 环境搭建初始化",

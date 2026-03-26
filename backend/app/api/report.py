@@ -19,6 +19,9 @@ from ..utils.logger import get_logger
 
 logger = get_logger("mirofish.api.report")
 
+# Registry of active ReportAgent instances (for "Retry Now" support)
+_active_agents: dict = {}  # report_id -> ReportAgent
+
 
 # ============== 报告生成接口 ==============
 
@@ -171,12 +174,15 @@ def generate_report():
                         task_id, progress=progress, message=f"[{stage}] {message}"
                     )
 
-                # 生成报告（传入预先生成的 report_id）
+                # Register agent so "Retry Now" can find it
+                _active_agents[report_id] = agent
+
+                # Generate report
                 report = agent.generate_report(
                     progress_callback=progress_callback, report_id=report_id
                 )
 
-                # 保存报告
+                # Save report
                 ReportManager.save_report(report)
 
                 if report.status == ReportStatus.COMPLETED:
@@ -189,11 +195,15 @@ def generate_report():
                         },
                     )
                 else:
-                    task_manager.fail_task(task_id, report.error or "报告生成失败")
+                    task_manager.fail_task(
+                        task_id, report.error or "Report generation failed"
+                    )
 
             except Exception as e:
-                logger.error(f"报告生成失败: {str(e)}")
+                logger.error(f"Report generation failed: {str(e)}")
                 task_manager.fail_task(task_id, str(e))
+            finally:
+                _active_agents.pop(report_id, None)
 
         # 启动后台线程
         thread = threading.Thread(target=run_generate, daemon=True)
@@ -216,10 +226,32 @@ def generate_report():
         )
 
     except Exception as e:
-        logger.error(f"启动报告生成任务失败: {str(e)}")
+        logger.error(f"Failed to start report generation: {str(e)}")
         return jsonify(
             {"success": False, "error": str(e), "traceback": traceback.format_exc()}
         ), 500
+
+
+@report_bp.route("/retry-now/<report_id>", methods=["POST"])
+def retry_now(report_id):
+    """Skip the current rate-limit wait and retry immediately."""
+    agent = _active_agents.get(report_id)
+    if not agent:
+        return jsonify(
+            {"success": False, "error": "No active generation for this report"}
+        ), 404
+
+    agent.llm.skip_wait()
+    logger.info(f"Manual retry requested for report {report_id}")
+
+    if agent.report_logger:
+        agent.report_logger.log(
+            action="retry_now",
+            stage="generating",
+            details={"message": "Manual retry requested — skipping wait..."},
+        )
+
+    return jsonify({"success": True, "message": "Retry signal sent"})
 
 
 @report_bp.route("/generate/status", methods=["POST"])

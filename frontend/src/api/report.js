@@ -51,3 +51,11 @@ export const chatWithReport = (data) => {
   const locale = localStorage.getItem('mirofish-locale') || 'en'
   return requestWithRetry(() => service.post('/api/report/chat', { ...data, locale }), 3, 1000)
 }
+
+/**
+ * Skip rate-limit wait and retry now
+ * @param {string} reportId
+ */
+export const retryNowRequest = (reportId) => {
+  return service.post(`/api/report/retry-now/${reportId}`)
+}

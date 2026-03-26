@@ -309,7 +309,8 @@
     "generating": "Đang tạo...",
     "error": "Lỗi",
     "generatingSection": "Đang tạo {title}...",
-    "enterInteraction": "Vào Tương tác Sâu"
+    "enterInteraction": "Vào Tương tác Sâu",
+    "regenerate": "Tạo lại Báo cáo"
   },
   "step5": {
     "predictionReport": "Báo cáo Dự đoán",
@@ -423,7 +424,10 @@
     "latency": "Độ trễ",
     "rateLimits": "Giới hạn Tốc độ",
     "configTitle": "Cấu hình",
-    "retryConfig": "Tự động Thử lại"
+    "retryConfig": "Tự động Thử lại",
+    "availableModels": "Mô hình Khả dụng",
+    "modelsFound": "mô hình khả dụng trong gói hiện tại",
+    "currentModel": "ĐANG DÙNG"
   },
   "logs": {
     "step2Init": "Step2 Khởi tạo thiết lập môi trường",

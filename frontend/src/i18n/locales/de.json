@@ -309,7 +309,8 @@
     "generating": "Wird generiert...",
     "error": "Fehler",
     "generatingSection": "{title} wird generiert...",
-    "enterInteraction": "Zur tiefgehenden Interaktion"
+    "enterInteraction": "Zur tiefgehenden Interaktion",
+    "regenerate": "Bericht neu generieren"
   },
   "step5": {
     "predictionReport": "Vorhersagebericht",
@@ -423,7 +424,10 @@
     "latency": "Latenz",
     "rateLimits": "Ratenlimits",
     "configTitle": "Konfiguration",
-    "retryConfig": "Automatische Wiederholung"
+    "retryConfig": "Automatische Wiederholung",
+    "availableModels": "Verfügbare Modelle",
+    "modelsFound": "Modelle in Ihrem aktuellen Tarif verfügbar",
+    "currentModel": "AKTIV"
   },
   "logs": {
     "step2Init": "Step2 Umgebungseinrichtung Initialisierung",

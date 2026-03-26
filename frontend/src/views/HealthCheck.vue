@@ -122,6 +122,61 @@
         </div>
       </div>
 
+      <!-- Available Models -->
+      <div class="models-section" v-if="healthData && healthData.available_models && healthData.available_models.length > 0">
+        <h3>{{ $t('health.availableModels') }}</h3>
+        <p class="models-subtitle">{{ healthData.available_models.length }} {{ $t('health.modelsFound') }}</p>
+        <div class="models-list">
+          <div 
+            v-for="model in healthData.available_models" 
+            :key="model.id || model.error"
+            class="model-card"
+            :class="{ 
+              'model-active': model.id === healthData.config.llm_model, 
+              'model-error': model.error,
+              'model-rate-limited': model.rate_limit?.status === 'rate_limited',
+            }"
+          >
+            <span v-if="model.error" class="model-error-text">{{ model.error }}</span>
+            <template v-else>
+              <div class="model-header">
+                <span class="model-id mono">{{ model.id }}</span>
+                <span class="model-badge badge-active" v-if="model.id === healthData.config.llm_model">{{ $t('health.currentModel') }}</span>
+                <span class="model-badge badge-limited" v-if="model.rate_limit?.status === 'rate_limited'">{{ $t('health.rateLimited') }}</span>
+                <span class="model-badge badge-ok" v-else-if="model.rate_limit?.status === 'ok'">OK</span>
+                <span class="model-owner" v-if="model.owned_by">{{ model.owned_by }}</span>
+              </div>
+              <!-- Rate limit details for tested models -->
+              <div class="model-limits" v-if="model.rate_limit && model.rate_limit.status !== 'ok'">
+                <template v-if="model.rate_limit.status === 'rate_limited'">
+                  <span class="limit-tag limited">
+                    {{ model.rate_limit.message }}
+                    <template v-if="model.rate_limit.retry_after_seconds">
+                      — retry in {{ Math.round(model.rate_limit.retry_after_seconds / 60) }}m
+                    </template>
+                  </span>
+                </template>
+                <template v-else-if="model.rate_limit.status === 'error'">
+                  <span class="limit-tag error">{{ model.rate_limit.message }}</span>
+                </template>
+                <template v-else>
+                  <!-- Normal rate limit headers -->
+                  <span class="limit-tag" v-if="model.rate_limit.remaining_requests">
+                    {{ model.rate_limit.remaining_requests }}/{{ model.rate_limit.limit_requests }} req
+                  </span>
+                  <span class="limit-tag" v-if="model.rate_limit.remaining_tokens">
+                    {{ model.rate_limit.remaining_tokens }}/{{ model.rate_limit.limit_tokens }} tok
+                  </span>
+                  <span class="limit-tag" v-if="model.rate_limit.reset_requests">
+                    reset {{ model.rate_limit.reset_requests }}
+                  </span>
+                </template>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
       <!-- Loading / Error State -->
       <div class="loading-state" v-if="isLoading && !healthData">
         <div class="spinner"></div>
@@ -431,6 +486,110 @@ onMounted(() => {
 }
 .config-label { color: #888; font-size: 12px; }
 .config-value { font-size: 12px; color: #000; }
+
+/* Available Models */
+.models-section {
+  background: #FAFAFA;
+  border: 1px solid #EAEAEA;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 16px;
+}
+.models-section h3 { margin: 0 0 4px 0; font-size: 14px; color: #666; }
+.models-subtitle { margin: 0 0 12px 0; font-size: 12px; color: #999; }
+
+.models-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.model-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+.model-card:hover { background: #F0F0F0; }
+
+.model-active {
+  background: rgba(34,197,94,0.06);
+  border-color: rgba(34,197,94,0.2);
+}
+.model-active:hover { background: rgba(34,197,94,0.1); }
+
+.model-rate-limited {
+  background: rgba(245,158,11,0.04);
+  border-color: rgba(245,158,11,0.15);
+}
+
+.model-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.model-id {
+  font-size: 12px;
+  color: #333;
+  flex: 1;
+}
+.model-active .model-id {
+  font-weight: 600;
+  color: #000;
+}
+
+.model-badge {
+  font-size: 9px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 1px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+.badge-active { background: #16A34A; color: #fff; }
+.badge-limited { background: #F59E0B; color: #fff; }
+.badge-ok { background: #E5E7EB; color: #666; }
+
+.model-owner {
+  font-size: 11px;
+  color: #999;
+  flex-shrink: 0;
+}
+
+.model-limits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-left: 2px;
+}
+
+.limit-tag {
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 1px 8px;
+  border-radius: 3px;
+  background: #F3F4F6;
+  color: #555;
+}
+.limit-tag.limited {
+  background: rgba(245,158,11,0.1);
+  color: #B45309;
+}
+.limit-tag.error {
+  background: rgba(220,38,38,0.08);
+  color: #DC2626;
+}
+
+.model-error { background: rgba(220,38,38,0.05); }
+.model-error-text { font-size: 12px; color: #DC2626; }
 
 /* Loading & Error */
 .loading-state, .error-state {

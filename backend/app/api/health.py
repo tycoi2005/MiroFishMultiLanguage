@@ -98,6 +98,115 @@ def _check_llm_api():
     return result
 
 
+def _list_available_models():
+    """List available chat models from the LLM API provider with rate limit info."""
+    if not Config.LLM_API_KEY:
+        return []
+
+    try:
+        from openai import OpenAI, RateLimitError
+
+        client = OpenAI(api_key=Config.LLM_API_KEY, base_url=Config.LLM_BASE_URL)
+        response = client.models.list()
+
+        # Filter to chat-capable models only (exclude image, audio, embedding, video)
+        EXCLUDE_PREFIXES = (
+            "models/imagen",
+            "models/veo",
+            "models/lyria",
+            "models/gemini-embedding",
+            "models/gemma",
+            "models/nano",
+            "models/gemini-robotics",
+        )
+        EXCLUDE_CONTAINS = (
+            "tts",
+            "audio",
+            "image",
+            "embedding",
+        )
+
+        chat_models = []
+        for model in response.data:
+            model_id = model.id
+            if any(model_id.startswith(p) for p in EXCLUDE_PREFIXES):
+                continue
+            if any(kw in model_id.lower() for kw in EXCLUDE_CONTAINS):
+                continue
+            info = {
+                "id": model_id,
+                "owned_by": getattr(model, "owned_by", None),
+            }
+            chat_models.append(info)
+
+        chat_models.sort(key=lambda m: m["id"])
+
+        # Test rate limits for up to 3 key models (active model + first 2 others)
+        # by sending a minimal request and reading response headers
+        models_to_test = set()
+        models_to_test.add(Config.LLM_MODEL_NAME)
+        for m in chat_models[:5]:
+            if len(models_to_test) >= 3:
+                break
+            models_to_test.add(m["id"])
+
+        rate_limits_by_model = {}
+        for model_id in models_to_test:
+            try:
+                raw = client.chat.completions.with_raw_response.create(
+                    model=model_id,
+                    messages=[{"role": "user", "content": "hi"}],
+                    max_tokens=1,
+                    temperature=0,
+                )
+                headers = raw.headers
+                limits = {}
+                for header in [
+                    "x-ratelimit-limit-requests",
+                    "x-ratelimit-limit-tokens",
+                    "x-ratelimit-remaining-requests",
+                    "x-ratelimit-remaining-tokens",
+                    "x-ratelimit-reset-requests",
+                    "x-ratelimit-reset-tokens",
+                ]:
+                    val = headers.get(header)
+                    if val is not None:
+                        key = header.replace("x-ratelimit-", "").replace("-", "_")
+                        limits[key] = val
+                if limits:
+                    rate_limits_by_model[model_id] = limits
+                else:
+                    rate_limits_by_model[model_id] = {"status": "ok"}
+            except RateLimitError as e:
+                err_msg = str(e)
+                from ..utils.llm_client import _parse_retry_after
+
+                wait = _parse_retry_after(err_msg)
+                rate_limits_by_model[model_id] = {
+                    "status": "rate_limited",
+                    "retry_after_seconds": wait,
+                    "message": "Quota exceeded"
+                    if "quota" in err_msg.lower()
+                    else "Rate limited",
+                }
+            except Exception as e:
+                rate_limits_by_model[model_id] = {
+                    "status": "error",
+                    "message": str(e)[:120],
+                }
+
+        # Attach rate limit info to model entries
+        for m in chat_models:
+            if m["id"] in rate_limits_by_model:
+                m["rate_limit"] = rate_limits_by_model[m["id"]]
+
+        return chat_models
+
+    except Exception as e:
+        logger.warning(f"Failed to list models: {str(e)}")
+        return [{"error": str(e)}]
+
+
 def _check_zep_api():
     """Check Zep API health."""
     result = {
@@ -148,6 +257,7 @@ def api_health_check():
     """
     llm_result = _check_llm_api()
     zep_result = _check_zep_api()
+    available_models = _list_available_models()
 
     all_healthy = (
         llm_result["status"] == "healthy" and zep_result["status"] == "healthy"
@@ -157,6 +267,7 @@ def api_health_check():
         {
             "overall_status": "healthy" if all_healthy else "degraded",
             "services": [llm_result, zep_result],
+            "available_models": available_models,
             "config": {
                 "llm_model": Config.LLM_MODEL_NAME,
                 "llm_base_url": Config.LLM_BASE_URL,

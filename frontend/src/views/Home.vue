@@ -361,35 +361,29 @@ const startSimulation = () => {
 </script>
 
 <style scoped>
-/* 全局变量与重置 */
-:root {
+/* Design tokens — defined on the component root so they work with scoped styles */
+.home-container {
   --black: #000000;
   --white: #FFFFFF;
   --orange: #FF4500;
   --gray-light: #F5F5F5;
   --gray-text: #666666;
   --border: #E5E5E5;
-  /* 
-    使用 Space Grotesk 作为主要标题字体，JetBrains Mono 作为代码/标签字体
-    确保已在 index.html 引入这些 Google Fonts 
-  */
   --font-mono: 'JetBrains Mono', monospace;
   --font-sans: 'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif;
   --font-cn: 'Noto Sans SC', system-ui, sans-serif;
-}
 
-.home-container {
   min-height: 100vh;
-  background: var(--white);
+  background: #FFFFFF;
   font-family: var(--font-sans);
-  color: var(--black);
+  color: #000000;
 }
 
-/* 顶部导航 */
+/* Navbar */
 .navbar {
   height: 60px;
-  background: var(--black);
-  color: var(--white);
+  background: #000000;
+  color: #FFFFFF;
   display: flex;
   justify-content: space-between;
   align-items: center;

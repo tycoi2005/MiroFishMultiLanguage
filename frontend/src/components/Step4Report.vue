@@ -68,8 +68,16 @@
         <!-- Error State -->
         <div v-if="isFailed" class="error-placeholder">
           <div class="error-icon">&#x26A0;</div>
-          <span class="error-title">Report Generation Failed</span>
+          <span class="error-title">{{ $t('step4.reportFailed') }}</span>
           <span class="error-detail">{{ errorMessage }}</span>
+          <button class="regenerate-btn" @click="regenerateReport" :disabled="isRegenerating">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M23 4v6h-6"></path>
+              <path d="M1 20v-6h6"></path>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            {{ isRegenerating ? $t('health.checking') : $t('step4.regenerate') }}
+          </button>
         </div>
 
         <!-- Waiting State -->
@@ -134,14 +142,24 @@
             </div>
           </div>
 
-          <!-- Next Step Button - 在完成后显示 -->
-          <button v-if="isComplete" class="next-step-btn" @click="goToInteraction">
-            <span>{{ $t('step4.enterInteraction') }}</span>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-              <polyline points="12 5 19 12 12 19"></polyline>
-            </svg>
-          </button>
+          <!-- Action buttons after completion -->
+          <div v-if="isComplete" class="complete-actions">
+            <button v-if="hasFailedSections" class="regenerate-btn" @click="regenerateReport" :disabled="isRegenerating">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M23 4v6h-6"></path>
+                <path d="M1 20v-6h6"></path>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              {{ isRegenerating ? $t('health.checking') : $t('step4.regenerate') }}
+            </button>
+            <button class="next-step-btn" @click="goToInteraction">
+              <span>{{ $t('step4.enterInteraction') }}</span>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </button>
+          </div>
 
           <div class="workflow-divider"></div>
         </div>
@@ -388,6 +406,14 @@
                   (attempt {{ rateLimitInfo.attempt }}/{{ rateLimitInfo.maxRetries }})
                 </span>
               </div>
+              <button class="retry-now-btn" @click="retryNow" :disabled="retryingNow">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M23 4v6h-6"></path>
+                  <path d="M1 20v-6h6"></path>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+                {{ retryingNow ? 'Retrying...' : 'Retry Now' }}
+              </button>
               <div class="rate-limit-pulse"></div>
             </div>
           </Transition>
@@ -420,7 +446,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick, h, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getAgentLog, getConsoleLog } from '../api/report'
+import { getAgentLog, getConsoleLog, retryNowRequest, generateReport } from '../api/report'
 
 const { t } = useI18n()
 
@@ -455,6 +481,8 @@ const collapsedSections = ref(new Set())
 const isComplete = ref(false)
 const isFailed = ref(false)
 const rateLimitInfo = ref({ active: false })
+const retryingNow = ref(false)
+const isRegenerating = ref(false)
 const errorMessage = ref('')
 const startTime = ref(null)
 const leftPanel = ref(null)
@@ -1750,6 +1778,23 @@ const statusText = computed(() => {
   return 'Waiting'
 })
 
+const hasFailedSections = computed(() => {
+  // Check if any generated section contains failure placeholder text
+  for (const key in generatedSections.value) {
+    const content = generatedSections.value[key] || ''
+    if (content.includes('Section generation failed') || content.includes('本章节生成失败')) {
+      return true
+    }
+  }
+  // Also true if report completed but some sections are missing
+  if (isComplete.value && reportOutline.value) {
+    const expected = reportOutline.value.sections?.length || 0
+    const generated = Object.keys(generatedSections.value).length
+    if (generated < expected) return true
+  }
+  return isFailed.value
+})
+
 const totalSections = computed(() => {
   return reportOutline.value?.sections?.length || 0
 })
@@ -2139,11 +2184,13 @@ const fetchAgentLog = async () => {
             }
           }
 
-          // Clear rate limit state when generation resumes (next LLM response / tool call / section done)
+          // Clear rate limit state when generation resumes or manual retry
           if (log.action === 'llm_response' || log.action === 'tool_call' || 
-              log.action === 'section_complete' || log.action === 'section_start') {
+              log.action === 'section_complete' || log.action === 'section_start' ||
+              log.action === 'retry_now') {
             if (rateLimitInfo.value.active) {
               rateLimitInfo.value = { active: false }
+              retryingNow.value = false
             }
           }
 
@@ -2260,6 +2307,77 @@ const startPolling = () => {
   
   agentLogTimer = setInterval(fetchAgentLog, 2000)
   consoleLogTimer = setInterval(fetchConsoleLog, 1500)
+}
+
+const retryNow = async () => {
+  if (!props.reportId || retryingNow.value) return
+  retryingNow.value = true
+  try {
+    const res = await retryNowRequest(props.reportId)
+    if (res.data && !res.data.success) {
+      // Backend returned an error (e.g. no active generation)
+      rateLimitInfo.value = { active: false }
+      errorMessage.value = res.data.error || 'Retry failed'
+      isFailed.value = true
+      isComplete.value = true
+      currentSectionIndex.value = null
+      emit('update-status', 'error')
+    }
+  } catch (err) {
+    // HTTP error (404, 500, etc.)
+    const errMsg = err.response?.data?.error || err.message || 'Retry request failed'
+    rateLimitInfo.value = { active: false }
+    errorMessage.value = errMsg
+    isFailed.value = true
+    isComplete.value = true
+    currentSectionIndex.value = null
+    emit('update-status', 'error')
+  } finally {
+    retryingNow.value = false
+  }
+}
+
+const regenerateReport = async () => {
+  if (!props.simulationId || isRegenerating.value) return
+  isRegenerating.value = true
+  try {
+    // Reset all state
+    isFailed.value = false
+    isComplete.value = false
+    errorMessage.value = ''
+    rateLimitInfo.value = { active: false }
+    agentLogs.value = []
+    agentLogLine.value = 0
+    reportOutline.value = null
+    generatedSections.value = {}
+    currentSectionIndex.value = null
+    expandedContent.value = new Set()
+    expandedLogs.value = new Set()
+    collapsedSections.value = new Set()
+    startTime.value = null
+    lastLogReceivedAt = Date.now()
+
+    // Request new report generation (force_regenerate to overwrite the failed one)
+    const res = await generateReport({
+      simulation_id: props.simulationId,
+      force_regenerate: true,
+    })
+
+    if (res.data?.success && res.data?.data?.report_id) {
+      // Update the report ID if a new one was assigned
+      const newReportId = res.data.data.report_id
+      emit('update-report-id', newReportId)
+    }
+
+    // Restart polling
+    startPolling()
+  } catch (err) {
+    console.error('Regenerate report failed:', err)
+    errorMessage.value = err.response?.data?.error || err.message || 'Failed to regenerate'
+    isFailed.value = true
+  } finally {
+    isRegenerating.value = false
+  }
 }
 
 const stopPolling = () => {
@@ -2763,6 +2881,31 @@ watch(() => props.reportId, (newId) => {
   opacity: 0.8;
 }
 
+.retry-now-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background: #F59E0B;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 1;
+}
+.retry-now-btn:hover {
+  background: #D97706;
+}
+.retry-now-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .rate-limit-pulse {
   position: absolute;
   top: 0;
@@ -2806,6 +2949,30 @@ watch(() => props.reportId, (newId) => {
   text-align: center;
   max-width: 400px;
   word-break: break-word;
+}
+
+.regenerate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 8px 20px;
+  background: #000;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.regenerate-btn:hover {
+  background: #333;
+}
+.regenerate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Status error class */
@@ -3611,6 +3778,14 @@ watch(() => props.reportId, (newId) => {
   color: #065F46;
   font-weight: 600;
   font-size: 14px;
+}
+
+.complete-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px;
 }
 
 .next-step-btn {
