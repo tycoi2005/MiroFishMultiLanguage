@@ -15,10 +15,101 @@
       <div class="section-line"></div>
       <span class="section-title">{{ $t('history.title') }}</span>
       <div class="section-line"></div>
+      <!-- View toggle -->
+      <div class="view-toggle" v-if="projects.length > 0">
+        <button 
+          class="toggle-btn" 
+          :class="{ active: viewMode === 'card' }" 
+          @click.stop="viewMode = 'card'"
+          :title="$t('history.cardView')"
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+          </svg>
+        </button>
+        <button 
+          class="toggle-btn" 
+          :class="{ active: viewMode === 'list' }" 
+          @click.stop="viewMode = 'list'"
+          :title="$t('history.listView')"
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+        </button>
+      </div>
     </div>
 
-    <!-- 卡片容器（只在有项目时显示） -->
-    <div v-if="projects.length > 0" class="cards-container" :class="{ expanded: isExpanded }" :style="containerStyle">
+    <!-- LIST VIEW -->
+    <div v-if="projects.length > 0 && viewMode === 'list'" class="list-container">
+      <table class="list-table">
+        <thead>
+          <tr>
+            <th class="col-id">ID</th>
+            <th class="col-title">{{ $t('history.simRequirement') }}</th>
+            <th class="col-files">{{ $t('history.relatedFiles') }}</th>
+            <th class="col-status">{{ $t('common.step') }}</th>
+            <th class="col-progress">{{ $t('common.inProgress') }}</th>
+            <th class="col-date">{{ $t('history.date') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr 
+            v-for="project in projects" 
+            :key="'list-' + project.simulation_id"
+            class="list-row"
+            @click="navigateToProject(project)"
+          >
+            <td class="col-id mono">{{ formatSimulationId(project.simulation_id) }}</td>
+            <td class="col-title">
+              <span class="list-title">{{ getSimulationTitle(project.simulation_requirement) }}</span>
+              <span class="list-desc">{{ truncateText(project.simulation_requirement, 80) }}</span>
+            </td>
+            <td class="col-files">
+              <div class="list-files">
+                <span 
+                  v-for="(file, fi) in (project.files || []).slice(0, 2)" 
+                  :key="fi"
+                  class="file-tag mini"
+                  :class="getFileType(file.filename)"
+                >{{ getFileTypeLabel(file.filename) }}</span>
+                <span v-if="(project.files || []).length > 2" class="files-count">
+                  +{{ (project.files || []).length - 2 }}
+                </span>
+              </div>
+            </td>
+            <td class="col-status">
+              <div class="step-icons">
+                <span class="step-dot" :class="{ done: project.project_id }">1</span>
+                <span class="step-dot done">2</span>
+                <span class="step-dot" :class="{ done: project.current_round > 0 }">3</span>
+                <span class="step-dot" :class="{ done: project.report_id }">4</span>
+              </div>
+            </td>
+            <td class="col-progress">
+              <span class="progress-badge" :class="getProgressClass(project)">
+                {{ formatRounds(project) }}
+              </span>
+            </td>
+            <td class="col-date mono">
+              <span class="list-date">{{ formatDate(project.created_at) }}</span>
+              <span class="list-time">{{ formatTime(project.created_at) }}</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- CARD VIEW (original) -->
+    <div v-if="projects.length > 0 && viewMode === 'card'" class="cards-container" :class="{ expanded: isExpanded }" :style="containerStyle">
       <div 
         v-for="(project, index) in projects" 
         :key="project.simulation_id"
@@ -204,6 +295,7 @@ const { t } = useI18n()
 const projects = ref([])
 const loading = ref(true)
 const isExpanded = ref(false)
+const viewMode = ref(localStorage.getItem('mirofish-history-view') || 'card')
 const hoveringCard = ref(null)
 const historyContainer = ref(null)
 const selectedProject = ref(null)  // 当前选中的项目（用于弹窗）
@@ -211,6 +303,9 @@ let observer = null
 let isAnimating = false  // 动画锁，防止闪烁
 let expandDebounceTimer = null  // 防抖定时器
 let pendingState = null  // 记录待执行的目标状态
+
+// Persist view mode preference
+watch(viewMode, (val) => localStorage.setItem('mirofish-history-view', val))
 
 // 卡片布局配置 - 调整为更宽的比例
 const CARDS_PER_ROW = 4
@@ -643,6 +738,168 @@ onUnmounted(() => {
   height: 1px;
   background: linear-gradient(90deg, transparent, #E5E7EB, transparent);
   max-width: 300px;
+}
+
+/* View Toggle */
+.view-toggle {
+  display: flex;
+  gap: 2px;
+  background: #F3F4F6;
+  border-radius: 6px;
+  padding: 2px;
+  position: absolute;
+  right: 40px;
+}
+.toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #9CA3AF;
+  transition: all 0.15s;
+}
+.toggle-btn:hover { color: #374151; }
+.toggle-btn.active {
+  background: #fff;
+  color: #000;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
+/* List View */
+.list-container {
+  position: relative;
+  z-index: 100;
+  padding: 0 40px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.list-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.list-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.list-table th {
+  background: #F9FAFB;
+  color: #6B7280;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid #E5E7EB;
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+}
+
+.list-row {
+  cursor: pointer;
+  transition: background 0.15s;
+  border-bottom: 1px solid #F3F4F6;
+}
+.list-row:hover { background: #F9FAFB; }
+.list-row:last-child { border-bottom: none; }
+
+.list-table td {
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+
+.col-id { width: 110px; }
+.col-title { min-width: 200px; }
+.col-files { width: 120px; }
+.col-status { width: 100px; }
+.col-progress { width: 100px; }
+.col-date { width: 110px; }
+
+.list-title {
+  display: block;
+  font-weight: 600;
+  color: #111;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+.list-desc {
+  display: block;
+  color: #9CA3AF;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.list-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.file-tag.mini {
+  font-size: 9px;
+  padding: 1px 4px;
+}
+
+.files-count {
+  font-size: 10px;
+  color: #9CA3AF;
+}
+
+.step-icons {
+  display: flex;
+  gap: 4px;
+}
+.step-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  background: #F3F4F6;
+  color: #9CA3AF;
+  border: 1px solid #E5E7EB;
+}
+.step-dot.done {
+  background: #000;
+  color: #fff;
+  border-color: #000;
+}
+
+.progress-badge {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.progress-badge.completed { background: rgba(34,197,94,0.1); color: #16A34A; }
+.progress-badge.in-progress { background: rgba(245,158,11,0.1); color: #D97706; }
+.progress-badge.not-started { background: #F3F4F6; color: #9CA3AF; }
+
+.list-date {
+  display: block;
+  color: #374151;
+  font-size: 11px;
+}
+.list-time {
+  display: block;
+  color: #9CA3AF;
+  font-size: 10px;
 }
 
 .section-title {

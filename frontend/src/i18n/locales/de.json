@@ -385,7 +385,10 @@
     "step5": "Step5",
     "replayHint": "Step3 'Simulation starten' und Step5 'Tiefgehende Interaktion' müssen live ausgeführt werden und unterstützen keine historische Wiedergabe",
     "untitledSim": "Unbenannte Simulation",
-    "notStarted": "Nicht gestartet"
+    "notStarted": "Nicht gestartet",
+    "cardView": "Kartenansicht",
+    "listView": "Listenansicht",
+    "date": "Datum"
   },
   "simulation": {
     "stepName": "Umgebungseinrichtung",

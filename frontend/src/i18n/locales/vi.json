@@ -385,7 +385,10 @@
     "step5": "Step5",
     "replayHint": "Step3 'Bắt đầu Mô phỏng' và Step5 'Tương tác Sâu' phải chạy trực tiếp và không hỗ trợ phát lại lịch sử",
     "untitledSim": "Mô phỏng Chưa đặt tên",
-    "notStarted": "Chưa Bắt đầu"
+    "notStarted": "Chưa Bắt đầu",
+    "cardView": "Dạng Thẻ",
+    "listView": "Dạng Danh sách",
+    "date": "Ngày"
   },
   "simulation": {
     "stepName": "Thiết lập Môi trường",

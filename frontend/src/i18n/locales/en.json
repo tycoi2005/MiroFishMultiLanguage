@@ -385,7 +385,10 @@
     "step5": "Step5",
     "replayHint": "Step3 'Start Simulation' and Step5 'Deep Interaction' must be run live and do not support historical replay",
     "untitledSim": "Untitled Simulation",
-    "notStarted": "Not Started"
+    "notStarted": "Not Started",
+    "cardView": "Card View",
+    "listView": "List View",
+    "date": "Date"
   },
   "simulation": {
     "stepName": "Environment Setup",

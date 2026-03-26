@@ -385,7 +385,10 @@
     "step5": "Step5",
     "replayHint": "Step3「开始模拟」与 Step5「深度互动」需在运行中启动，不支持历史回放",
     "untitledSim": "未命名模拟",
-    "notStarted": "未开始"
+    "notStarted": "未开始",
+    "cardView": "卡片视图",
+    "listView": "列表视图",
+    "date": "日期"
   },
   "simulation": {
     "stepName": "环境搭建",
