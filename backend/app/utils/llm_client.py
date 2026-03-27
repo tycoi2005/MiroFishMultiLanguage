@@ -415,9 +415,14 @@ class LLMBalancer:
                 last_error = e
                 error_msg = str(e)
 
-                # Don't failover for 413 (request too large) — that's a content issue
+                # For 413 (request too large), also try next provider — it may
+                # have a higher TPM limit (e.g., local Ollama vs cloud Groq 12K)
                 if _is_request_too_large_error(e):
-                    raise
+                    logger.warning(
+                        f"Provider '{name}' request too large. Trying next provider..."
+                    )
+                    # Don't mark as rate-limited — it's a size issue, not a quota issue
+                    continue
 
                 # Mark this provider as rate-limited
                 wait_seconds = _parse_retry_after(error_msg) or 60

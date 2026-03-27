@@ -486,9 +486,10 @@ class ReportAgent:
     MAX_TOOL_CALLS_PER_CHAT = 2
 
     # Max chars for tool results during report generation.
-    # Lowered from 12000 to 6000 to prevent 413 "request too large" errors
-    # on free-tier APIs with 12K TPM limits (e.g., Groq).
-    MAX_TOOL_RESULT_CHARS = 6000
+    # Lowered to 4000 to prevent 413 "request too large" errors.
+    # System prompt (~2500 tokens) + previous content (~1000 tokens) +
+    # tool result (~1500 tokens) + response = must fit within 12K TPM (Groq free).
+    MAX_TOOL_RESULT_CHARS = 4000
 
     def __init__(
         self,
@@ -565,6 +566,24 @@ class ReportAgent:
             if c is self.llm:
                 get_registry().mark_rate_limited(p.name, wait_seconds)
                 break
+
+    def _clean_story_content(self, content: str) -> str:
+        """Remove tool name references and meta-narrative from story output."""
+        import re as _re
+
+        # Remove sentences that reference tool names
+        tool_patterns = [
+            r"[^.!?]*\b(?:insight_forge|panorama_search|quick_search|interview_agents?)\b[^.!?]*[.!?]",
+            r"[^.!?]*(?:công cụ|工具|tool|Werkzeug)\s+(?:insight_forge|panorama_search|quick_search|interview)[^.!?]*[.!?]",
+            r"[^.!?]*(?:kết quả từ|结果来自|result from|Ergebnis von)\s+(?:công cụ|工具|tool|Werkzeug)[^.!?]*[.!?]",
+            r"[^.!?]*(?:Tôi gọi|我调用|I called|Ich rief)\s+(?:công cụ|工具|the tool|das Werkzeug)[^.!?]*[.!?]",
+            r"[^.!?]*(?:Sau khi nhận được kết quả|收到结果后|After receiving results)[^.!?]*[.!?]",
+        ]
+        for pattern in tool_patterns:
+            content = _re.sub(pattern, "", content, flags=_re.IGNORECASE)
+        # Clean up multiple blank lines left by removals
+        content = _re.sub(r"\n{3,}", "\n\n", content)
+        return content.strip()
 
     def _define_tools(self) -> Dict[str, Dict[str, Any]]:
         """Define available tools."""
@@ -997,17 +1016,25 @@ class ReportAgent:
                 tools_description=self._get_tools_description(),
             )
 
-        # 构建用户prompt - 每个已完成章节各传入最大4000字
+        # Build previous content — keep total under 3000 chars to leave room
+        # for system prompt + tool results within TPM limits
+        MAX_PREV_TOTAL = 3000
         if previous_sections:
+            n = len(previous_sections)
+            per_section_budget = max(200, MAX_PREV_TOTAL // n)
             previous_parts = []
-            for sec in previous_sections:
-                # 每个章节最多4000字
-                truncated = sec[:4000] + "..." if len(sec) > 4000 else sec
+            for i, sec in enumerate(previous_sections):
+                if len(sec) > per_section_budget:
+                    # Keep first and last portions for context
+                    half = per_section_budget // 2
+                    truncated = sec[:half] + "\n[...]\n" + sec[-half:]
+                else:
+                    truncated = sec
                 previous_parts.append(truncated)
             previous_content = "\n\n---\n\n".join(previous_parts)
         else:
             previous_content = (
-                "(This is the first section)"
+                "(This is the first chapter)"
                 if self.locale != "zh"
                 else "（这是第一个章节）"
             )
@@ -1513,6 +1540,10 @@ class ReportAgent:
                         self.report_logger.log_error(
                             str(section_err), "generating", section_title=section.title
                         )
+
+                # Post-process: strip tool name references from story output
+                if self.mode == "story" and section_content:
+                    section_content = self._clean_story_content(section_content)
 
                 section.content = section_content
                 generated_sections.append(f"## {section.title}\n\n{section_content}")
