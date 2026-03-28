@@ -571,154 +571,94 @@ class ReportAgent:
         """Remove tool name references and meta-narrative from story output."""
         import re as _re
 
-        # Remove entire paragraphs that contain tool references
-        paragraphs = content.split("\n\n")
-        cleaned_paragraphs = []
-
-        for para in paragraphs:
-            # Skip paragraphs that are mainly about tool usage
-            if any(
-                phrase in para.lower()
-                for phrase in [
-                    "tôi gọi công cụ",
-                    "tôi quyết định",
-                    "sau khi nhận được kết quả",
-                    "tôi thấy rằng",
-                    "tôi cũng thấy",
-                    "cuối cùng, tôi gọi",
-                    "tôi hy vọng",
-                    "công cụ",
-                    "tool",
-                    "insight_forge",
-                    "panorama_search",
-                    "quick_search",
-                    "interview_agents",
-                    "để thu thập thông tin",
-                    "để tìm kiếm",
-                    "để tìm hiểu",
-                    "thông tin này sẽ giúp",
-                    "kết quả từ công cụ",
-                    "我调用",
-                    "工具",
-                    "结果显示",
-                    "信息显示",
-                    "i called",
-                    "the tool",
-                    "results show",
-                ]
-            ):
-                continue
-
-            # Skip lines that start with meta-narrative patterns
-            if para.strip().startswith(
-                (
-                    "Tôi quyết định",
-                    "Tôi gọi",
-                    "Sau khi nhận được",
-                    "Cuối cùng, tôi gọi",
-                    "Tôi cũng thấy",
-                    "Tôi thấy rằng",
-                    "Tôi hy vọng",
-                )
-            ):
-                # These are definitely meta-narrative, skip them
-                continue
-
-            # For other "Tôi" sentences, be more careful
-            if para.strip().startswith("Tôi "):
-                # Check if this is actually dialogue or important narrative
-                if (
-                    '"' not in para
-                    and "—" not in para
-                    and ":" not in para[:50]
-                    and any(
-                        word in para.lower()
-                        for word in [
-                            "công cụ",
-                            "thông tin",
-                            "kết quả",
-                            "tìm kiếm",
-                            "thu thập",
-                        ]
-                    )
-                ):
-                    continue
-
-            cleaned_paragraphs.append(para)
-
-        content = "\n\n".join(cleaned_paragraphs)
-
-        # Remove specific sentence patterns that reference tools
-        tool_patterns = [
-            # Vietnamese patterns
-            r"[^.!?]*\b(?:insight_forge|panorama_search|quick_search|interview_agents?)\b[^.!?]*[.!?]",
-            r"[^.!?]*(?:công cụ|tool)\s+(?:insight_forge|panorama_search|quick_search|interview)[^.!?]*[.!?]",
-            r"[^.!?]*(?:kết quả từ|result from)\s+(?:công cụ|tool)[^.!?]*[.!?]",
-            r"[^.!?]*(?:Tôi gọi|Tôi quyết định gọi|Cuối cùng, tôi gọi)[^.!?]*[.!?]",
-            r"[^.!?]*(?:Sau khi nhận được|Tôi thấy rằng|Tôi cũng thấy)[^.!?]*[.!?]",
-            r"[^.!?]*(?:để thu thập|để tìm kiếm|để tìm hiểu)\s+(?:thông tin|thêm thông tin)[^.!?]*[.!?]",
-            r"[^.!?]*(?:Tôi hy vọng|thông tin này sẽ giúp)[^.!?]*[.!?]",
-            # Chinese patterns
-            r"[^.!?]*(?:我调用|我决定调用|工具|结果显示|信息显示)[^.!?]*[.!?]",
+        # Step 1: Remove direct tool call sentences only
+        tool_call_patterns = [
+            r"Tôi (?:quyết định )?gọi công cụ [^.!?]+[.!?]",
+            r"[^.!?]*\bcông cụ (?:insight_forge|panorama_search|quick_search|interview_agents)\b[^.!?]*[.!?]",
+            r"Sau khi nhận được kết quả từ công cụ[^.!?]+[.!?]",
+            r"Cuối cùng, tôi gọi công cụ[^.!?]+[.!?]",
+            r"[^.!?]*để (?:thu thập|tìm kiếm|tìm hiểu) (?:thông tin|thêm thông tin) về[^.!?]+[.!?]",
+            r"Tôi hy vọng (?:rằng )?những thông tin này sẽ giúp[^.!?]+[.!?]",
+            # Chinese patterns  
+            r"[^.!?]*(?:我调用|我决定调用)[^.!?]*[.!?]",
+            r"[^.!?]*工具\s*(?:insight_forge|panorama_search|quick_search|interview_agents)[^.!?]*[.!?]",
             # English patterns
-            r"[^.!?]*(?:I called|I decided to call|After receiving|This information)[^.!?]*[.!?]",
+            r"[^.!?]*I (?:decided to )?call(?:ed)? (?:the )?tool[^.!?]+[.!?]",
+            r"[^.!?]*After receiving (?:the )?results? from[^.!?]+tool[^.!?]+[.!?]",
             # German patterns
-            r"[^.!?]*(?:Ich rief|Werkzeug|Ergebnis von)[^.!?]*[.!?]",
+            r"[^.!?]*Ich rief (?:das )?Werkzeug[^.!?]+[.!?]",
         ]
-
-        for pattern in tool_patterns:
-            content = _re.sub(
-                pattern, "", content, flags=_re.IGNORECASE | _re.MULTILINE
-            )
-
-        # Remove lines that are just connective tissue about information gathering
-        lines = content.split("\n")
-        cleaned_lines = []
-        skip_next = False
-
-        for i, line in enumerate(lines):
-            if skip_next:
-                skip_next = False
+        
+        cleaned = content
+        for pattern in tool_call_patterns:
+            cleaned = _re.sub(pattern, "", cleaned, flags=_re.IGNORECASE)
+        
+        # Step 2: Transform "discovery" sentences to preserve important content
+        # Instead of removing "Tôi thấy rằng", extract and reformat the content
+        
+        # Pattern to extract content after "Tôi thấy rằng có những thông tin về"
+        cleaned = _re.sub(
+            r"Tôi (?:cũng )?thấy rằng có (?:những )?thông tin về ([^,\.]+)(?:,|\.)([^.]*\.)?",
+            lambda m: f"\n\n{m.group(1).capitalize()} là {m.group(2) if m.group(2) else '.'}"
+            if 'một' in m.group(2) if m.group(2) else False
+            else f"\n\nCó thông tin quan trọng về {m.group(1)}{m.group(2) if m.group(2) else '.'}",
+            cleaned
+        )
+        
+        # General pattern for "Tôi thấy rằng"
+        cleaned = _re.sub(
+            r"Tôi (?:cũng )?thấy rằng ([^.]+)\.",
+            r"\n\n\1.",
+            cleaned
+        )
+        
+        # Remove empty paragraphs created by removals
+        paragraphs = cleaned.split('\n\n')
+        final_paragraphs = []
+        
+        for para in paragraphs:
+            para = para.strip()
+            # Skip empty paragraphs or those with only tool references
+            if not para:
                 continue
-
-            line_lower = line.strip().lower()
-
-            # Skip lines that are meta-commentary about the process
-            if any(
-                phrase in line_lower
-                for phrase in [
-                    "những thông tin này",
-                    "có những thông tin về",
-                    "có vài điều ở đây",
-                    "nội dung vẫn chứa",
-                    "ngoài ra nó cũng không giống",
-                ]
-            ):
-                # If next line is empty, skip it too
-                if i + 1 < len(lines) and not lines[i + 1].strip():
-                    skip_next = True
+                
+            # Skip paragraphs that are ONLY about tools/information gathering
+            if all(phrase in para.lower() for phrase in ['công cụ', 'kết quả']) and len(para) < 100:
                 continue
-
-            cleaned_lines.append(line)
-
-        content = "\n".join(cleaned_lines)
-
-        # Clean up multiple blank lines left by removals
-        content = _re.sub(r"\n{3,}", "\n\n", content)
-
-        # Clean up blank lines at the beginning
-        content = content.lstrip("\n")
-
-        # Ensure content doesn't start with lowercase (which might indicate a fragment)
-        if content and content[0].islower():
-            # Find the first sentence that starts with uppercase
-            sentences = content.split(". ")
-            for i, sent in enumerate(sentences):
-                if sent.strip() and sent.strip()[0].isupper():
-                    content = ". ".join(sentences[i:])
-                    break
-
-        return content.strip()
+                
+            # Skip meta-narrative about the investigation process itself
+            if para.startswith(('Tôi quyết định điều tra', 'Tôi quyết định tìm hiểu')):
+                # But check if there's important content after the first sentence
+                sentences = para.split('. ')
+                if len(sentences) > 1:
+                    # Keep the rest if it contains story content
+                    remaining = '. '.join(sentences[1:]).strip()
+                    if remaining and not any(word in remaining.lower() for word in ['công cụ', 'tool']):
+                        final_paragraphs.append(remaining)
+                continue
+            
+            final_paragraphs.append(para)
+        
+        # Rejoin paragraphs
+        result = '\n\n'.join(final_paragraphs)
+        
+        # Clean up formatting issues
+        result = _re.sub(r'\n{3,}', '\n\n', result)
+        result = _re.sub(r'  +', ' ', result)
+        result = result.strip()
+        
+        # Ensure proper sentence capitalization
+        if result:
+            sentences = result.split('. ')
+            capitalized = []
+            for sent in sentences:
+                sent = sent.strip()
+                if sent and sent[0].islower() and not sent.startswith(('và', 'hoặc', 'nhưng')):
+                    sent = sent[0].upper() + sent[1:]
+                capitalized.append(sent)
+            result = '. '.join(capitalized)
+        
+        return result
 
     def _define_tools(self) -> Dict[str, Dict[str, Any]]:
         """Define available tools."""
