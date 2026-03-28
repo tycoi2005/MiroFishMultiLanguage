@@ -657,11 +657,34 @@ class ReportAgent:
         expanded_sections = []
         words_per_section = target_word_count // 6
 
+        # For Groq free tier, reduce words per section to stay within TPM limits
+        # 3000 words / 6 = 500 words/section ≈ 650 tokens
+        # With system prompt ~200 tokens, total ~850 tokens per request
+        # This fits well within 14,400 TPM limit with load balancer
+
+        # Adjust for Groq limits if using Groq provider
+        if (
+            hasattr(self.llm, "model")
+            and "groq" in str(getattr(self.llm, "base_url", "")).lower()
+        ):
+            words_per_section = min(
+                words_per_section, 400
+            )  # Limit to 400 words for Groq
+            logger.info(
+                f"Using Groq API, limiting to {words_per_section} words per section"
+            )
+
         p = get_prompts(self.locale)
 
         for i, section in enumerate(sections):
             if not section.strip():
                 continue
+
+            # Add small delay between sections for rate limiting
+            if i > 0:
+                import time
+
+                time.sleep(2)  # 2 second delay between sections
 
             # Create expansion prompt
             system_prompt = """Bạn là một nhà văn tài năng. Nhiệm vụ của bạn là mở rộng đoạn văn ngắn thành một phần của câu chuyện với chi tiết phong phú.
@@ -686,13 +709,22 @@ Lưu ý: Đây là phần {i + 1}/6 của câu chuyện."""
                         {"role": "user", "content": user_prompt},
                     ],
                     temperature=0.7,
-                    max_tokens=2000,
+                    max_tokens=min(
+                        2000, words_per_section * 2
+                    ),  # Rough estimate: 1 token ≈ 0.5 words
                 )
 
                 if response:
                     expanded_sections.append(response.strip())
+                    logger.info(
+                        f"Expanded section {i + 1}: {len(response.split())} words"
+                    )
                 else:
                     expanded_sections.append(section)
+
+            except Exception as e:
+                logger.warning(f"Failed to expand section {i + 1}: {e}")
+                expanded_sections.append(section)
 
             except Exception as e:
                 logger.warning(f"Failed to expand section {i + 1}: {e}")
