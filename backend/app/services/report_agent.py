@@ -490,7 +490,7 @@ class ReportAgent:
     # Groq free tier only allows 12K TPM (not 14.4K as documented)
     # System prompt (~2500 tokens) + previous content (~1000 tokens) +
     # tool result + response must fit within 12K TPM
-    MAX_TOOL_RESULT_CHARS = 2500  # Further reduced for Groq 12K limit
+    MAX_TOOL_RESULT_CHARS = 2000  # Further reduced for Groq 12K limit (was 2500)
 
     def __init__(
         self,
@@ -574,16 +574,21 @@ class ReportAgent:
 
         # Dictionary of transformations
         transformations = {
-            # Vietnamese transformations
+            # Vietnamese transformations - more comprehensive patterns
+            r"Tôi quyết định gọi công cụ (?:linh giác|insight_forge) để tìm hiểu thêm về ([^.]+)\.": r"Tôi nhắm mắt, tập trung tâm trí để thấu hiểu sâu sắc hơn về \1. Những mảnh ghép ký ức dần hiện rõ.",
             r"Tôi quyết định điều tra thêm về ([^.]+)\.": r"Một cảm giác thôi thúc mạnh mẽ khiến tôi phải tìm hiểu sâu hơn về \1. Có điều gì đó ẩn giấu đằng sau, và tôi phải khám phá ra sự thật.",
             r"Tôi gọi công cụ insight_forge để thu thập thông tin về ([^.]+)\.": r"Tôi nhắm mắt lại, tập trung toàn bộ tâm trí để thấu hiểu sâu sắc hơn về \1. Những mảnh ký ức và tri thức ẩn sâu trong tiềm thức dần dần trỗi dậy.",
+            r"Kết quả từ công cụ cho thấy (?:rằng )?": r"Trong tầm nhìn của tôi, sự thật dần hiện rõ: ",
             r"Sau khi nhận được kết quả từ công cụ [^,]+, ": r"Khi những hình ảnh và thông tin dần hiện rõ trong tâm trí, ",
             r"Tôi (?:cũng )?thấy rằng có (?:những )?thông tin về ([^,]+), (.+?)\.": r"Trong tầm nhìn tâm linh của mình, tôi nhận ra \1 - \2.",
             r"Tôi (?:cũng )?thấy rằng (.+?)\.": r"Một sự thật quan trọng được hé lộ: \1.",
+            r"Tôi đọc thấy[.:] ?": r"Trí nhớ của tôi gợi lên: ",
+            r"Một sự thật quan trọng được hé lộ: \"([^\"]+)\"": r"Một sự thật quan trọng được hé lộ: \1",
             r"Tôi quyết định gọi công cụ panorama_search để tìm kiếm thông tin về ([^.]+)\.": r"Tôi mở rộng tầm nhận thức, để tâm trí lang thang khắp không gian và thời gian, tìm kiếm mọi dấu vết liên quan đến \1.",
-            r"Cuối cùng, tôi gọi công cụ quick_search để tìm kiếm thông tin về ([^.]+)\.": r"Với một nỗ lực cuối cùng, tôi tập trung vào việc tìm kiếm nhanh những chi tiết cụ thể về \1.",
+            r"Cuối cùng, tôi (?:quyết định )?gọi công cụ (?:linh giác|quick_search) để tìm hiểu thêm về ([^.]+)": r"Với một nỗ lực cuối cùng, tôi tập trung toàn bộ tâm trí vào \1",
             r"để thu thập thông tin về ([^.]+)\.": r"với hy vọng hiểu rõ hơn về \1.",
             r"Tôi hy vọng (?:rằng )?những thông tin này sẽ giúp tôi hiểu rõ hơn về ([^.]+)\.": r"Tất cả những điều này dần dần tạo nên một bức tranh hoàn chỉnh về \1 trong tâm trí tôi.",
+            r"không thể thực hiện được do môi trường mô phỏng không hoạt động\.": r"nhưng sự im lặng bao phủ, như thể vũ trụ chưa sẵn sàng tiết lộ bí mật này.",
             # Chinese transformations
             r"我调用(.+?)工具": r"我运用内心的力量去探寻",
             # English transformations
@@ -1185,18 +1190,35 @@ Lưu ý: Đây là phần {i + 1}/6 của câu chuyện."""
             self.report_logger.log_section_start(section.title, section_index)
 
         if self.mode == "story":
-            if self.story_format == "screenplay":
-                _section_sys_tpl = p.SCREENPLAY_SECTION_SYSTEM_PROMPT_TEMPLATE
-            else:
-                _section_sys_tpl = p.STORY_SECTION_SYSTEM_PROMPT_TEMPLATE
-            system_prompt = _section_sys_tpl.format(
-                report_title=outline.title,
-                report_summary=outline.summary,
-                simulation_requirement=self.simulation_requirement,
-                section_title=section.title,
-                tools_description=self._get_tools_description(),
-                story_format=self.story_format or "novel",
+            # For Groq, use a minimal system prompt to save tokens
+            is_groq = (
+                hasattr(self.llm, "base_url")
+                and "groq" in str(getattr(self.llm, "base_url", "")).lower()
             )
+            if is_groq:
+                # Minimal prompt for Groq to fit within 12K TPM limit
+                system_prompt = f"""You are writing chapter "{section.title}" of a story.
+Requirements: {self.simulation_requirement}
+
+Tools: insight_forge (deep analysis), panorama_search (broad search), quick_search (fast lookup), interview_agents (character perspectives)
+
+Format: <tool_call>{{"name": "tool_name", "parameters": {{"param": "value"}}}}</tool_call>
+After tools, write FINAL_ANSWER: followed by the story content.
+
+Write vivid narrative focusing on this chapter's theme."""
+            else:
+                if self.story_format == "screenplay":
+                    _section_sys_tpl = p.SCREENPLAY_SECTION_SYSTEM_PROMPT_TEMPLATE
+                else:
+                    _section_sys_tpl = p.STORY_SECTION_SYSTEM_PROMPT_TEMPLATE
+                system_prompt = _section_sys_tpl.format(
+                    report_title=outline.title,
+                    report_summary=outline.summary,
+                    simulation_requirement=self.simulation_requirement,
+                    section_title=section.title,
+                    tools_description=self._get_tools_description(),
+                    story_format=self.story_format or "novel",
+                )
         else:
             system_prompt = p.SECTION_SYSTEM_PROMPT_TEMPLATE.format(
                 report_title=outline.title,
@@ -1206,10 +1228,10 @@ Lưu ý: Đây là phần {i + 1}/6 của câu chuyện."""
                 tools_description=self._get_tools_description(),
             )
 
-        # Build previous content — keep total under 2000 chars to leave room
+        # Build previous content — keep total under 1500 chars to leave room
         # for system prompt + tool results within Groq 12K TPM limits
         MAX_PREV_TOTAL = (
-            2000
+            1500
             if (
                 self.mode == "story"
                 and hasattr(self.llm, "base_url")

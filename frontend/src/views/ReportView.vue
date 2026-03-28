@@ -128,11 +128,19 @@ const addLog = (msg) => {
   }
 }
 
-const onReportIdChanged = (newId) => {
+const onReportIdChanged = async (newId) => {
   currentReportId.value = newId
   addLog(`Report ID updated: ${newId}`)
-  // Navigate to the new report URL
-  router.push({ name: 'Report', params: { reportId: newId } })
+  
+  // Force reload by navigating away and back
+  if (route.params.reportId === newId) {
+    // If we're already on this report ID (shouldn't happen), force reload
+    await loadReportData()
+  } else {
+    // Navigate to the new report URL
+    await router.push({ name: 'Report', params: { reportId: newId } })
+    // The watcher will trigger loadReportData
+  }
 }
 
 const updateStatus = (status) => {
