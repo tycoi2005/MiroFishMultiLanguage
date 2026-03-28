@@ -486,10 +486,11 @@ class ReportAgent:
     MAX_TOOL_CALLS_PER_CHAT = 2
 
     # Max chars for tool results during report generation.
-    # Lowered to 4000 to prevent 413 "request too large" errors.
+    # Lowered to prevent 413 "request too large" errors.
+    # Groq free tier only allows 12K TPM (not 14.4K as documented)
     # System prompt (~2500 tokens) + previous content (~1000 tokens) +
-    # tool result (~1500 tokens) + response = must fit within 12K TPM (Groq free).
-    MAX_TOOL_RESULT_CHARS = 4000
+    # tool result + response must fit within 12K TPM
+    MAX_TOOL_RESULT_CHARS = 2500  # Further reduced for Groq 12K limit
 
     def __init__(
         self,
@@ -739,6 +740,14 @@ Lưu ý: Đây là phần {i + 1}/6 của câu chuyện."""
 - Sửa lỗi ngữ pháp, chính tả nếu có
 - Giữ nguyên nội dung và độ dài
 - Làm cho câu chuyện trôi chảy tự nhiên"""
+
+        # Skip polish pass for Groq to save tokens
+        if (
+            hasattr(self.llm, "base_url")
+            and "groq" in str(getattr(self.llm, "base_url", "")).lower()
+        ):
+            logger.info("Skipping polish pass for Groq to save tokens")
+            return full_story
 
         try:
             polished = self.llm.chat(
@@ -1197,9 +1206,17 @@ Lưu ý: Đây là phần {i + 1}/6 của câu chuyện."""
                 tools_description=self._get_tools_description(),
             )
 
-        # Build previous content — keep total under 3000 chars to leave room
-        # for system prompt + tool results within TPM limits
-        MAX_PREV_TOTAL = 3000
+        # Build previous content — keep total under 2000 chars to leave room
+        # for system prompt + tool results within Groq 12K TPM limits
+        MAX_PREV_TOTAL = (
+            2000
+            if (
+                self.mode == "story"
+                and hasattr(self.llm, "base_url")
+                and "groq" in str(getattr(self.llm, "base_url", "")).lower()
+            )
+            else 3000
+        )
         if previous_sections:
             n = len(previous_sections)
             per_section_budget = max(200, MAX_PREV_TOTAL // n)
@@ -1241,6 +1258,12 @@ Lưu ý: Đây là phần {i + 1}/6 của câu chuyện."""
         tool_calls_count = 0
         max_iterations = 5  # 最大迭代轮数
         min_tool_calls = 3  # 最少工具调用次数
+
+        # Reduce min tool calls for story mode to reduce token usage
+        if self.mode == "story":
+            min_tool_calls = 2
+            max_iterations = 4
+
         conflict_retries = 0  # 工具调用与Final Answer同时出现的连续冲突次数
         used_tools = set()  # 记录已调用过的工具名
         all_tools = {
@@ -1270,8 +1293,17 @@ Lưu ý: Đây là phần {i + 1}/6 của câu chuyện."""
                 )
 
             # 调用LLM
+            # Reduce tokens for story mode to avoid Groq 12k limit
+            max_tokens = 4096
+            if (
+                self.mode == "story"
+                and hasattr(self.llm, "base_url")
+                and "groq" in str(getattr(self.llm, "base_url", "")).lower()
+            ):
+                max_tokens = 2048  # Reduce for Groq
+
             response = self.llm.chat(
-                messages=messages, temperature=0.5, max_tokens=4096
+                messages=messages, temperature=0.5, max_tokens=max_tokens
             )
 
             # 检查 LLM 返回是否为 None（API 异常或内容为空）

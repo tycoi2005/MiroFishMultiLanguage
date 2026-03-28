@@ -131,6 +131,8 @@ const addLog = (msg) => {
 const onReportIdChanged = (newId) => {
   currentReportId.value = newId
   addLog(`Report ID updated: ${newId}`)
+  // Navigate to the new report URL
+  router.push({ name: 'Report', params: { reportId: newId } })
 }
 
 const updateStatus = (status) => {
