@@ -6,6 +6,7 @@ import SimulationView from '../views/SimulationView.vue'
 import SimulationRunView from '../views/SimulationRunView.vue'
 import ReportView from '../views/ReportView.vue'
 import InteractionView from '../views/InteractionView.vue'
+import StoryView from '../views/Story.vue'
 
 const routes = [
   {
@@ -47,6 +48,12 @@ const routes = [
     name: 'Interaction',
     component: InteractionView,
     props: true
+  },
+  {
+    path: '/story',
+    name: 'Story',
+    component: StoryView,
+    meta: { hidden: true } // Mark as hidden page for testing
   }
 ]
 

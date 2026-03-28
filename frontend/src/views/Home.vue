@@ -125,44 +125,16 @@
         <!-- 右栏：交互控制台 -->
         <div class="right-panel">
           <div class="console-box">
-            <!-- Mode Selector -->
+            <!-- Mode Selector (Story mode temporarily hidden) -->
             <div class="console-section">
               <div class="mode-selector">
                 <button 
-                  class="mode-btn" 
-                  :class="{ active: formData.mode === 'prediction' }"
-                  @click="formData.mode = 'prediction'; formData.storyFormat = null"
+                  class="mode-btn active" 
+                  style="cursor: default;"
                 >
                   <span class="mode-icon">📊</span>
                   <span class="mode-label">{{ $t('home.modePrediction') }}</span>
                   <span class="mode-desc">{{ $t('home.modePredictionDesc') }}</span>
-                </button>
-                <button 
-                  class="mode-btn" 
-                  :class="{ active: formData.mode === 'story' }"
-                  @click="formData.mode = 'story'"
-                >
-                  <span class="mode-icon">📖</span>
-                  <span class="mode-label">{{ $t('home.modeStory') }}</span>
-                  <span class="mode-desc">{{ $t('home.modeStoryDesc') }}</span>
-                </button>
-              </div>
-
-              <!-- Story Format (only visible when story mode is selected) -->
-              <div v-if="formData.mode === 'story'" class="format-selector">
-                <button 
-                  class="format-btn"
-                  :class="{ active: formData.storyFormat === 'novel' }"
-                  @click="formData.storyFormat = 'novel'"
-                >
-                  {{ $t('home.formatNovel') }}
-                </button>
-                <button 
-                  class="format-btn"
-                  :class="{ active: formData.storyFormat === 'screenplay' }"
-                  @click="formData.storyFormat = 'screenplay'"
-                >
-                  {{ $t('home.formatScreenplay') }}
                 </button>
               </div>
             </div>
