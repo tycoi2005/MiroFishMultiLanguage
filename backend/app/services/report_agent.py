@@ -571,18 +571,153 @@ class ReportAgent:
         """Remove tool name references and meta-narrative from story output."""
         import re as _re
 
-        # Remove sentences that reference tool names
+        # Remove entire paragraphs that contain tool references
+        paragraphs = content.split("\n\n")
+        cleaned_paragraphs = []
+
+        for para in paragraphs:
+            # Skip paragraphs that are mainly about tool usage
+            if any(
+                phrase in para.lower()
+                for phrase in [
+                    "tôi gọi công cụ",
+                    "tôi quyết định",
+                    "sau khi nhận được kết quả",
+                    "tôi thấy rằng",
+                    "tôi cũng thấy",
+                    "cuối cùng, tôi gọi",
+                    "tôi hy vọng",
+                    "công cụ",
+                    "tool",
+                    "insight_forge",
+                    "panorama_search",
+                    "quick_search",
+                    "interview_agents",
+                    "để thu thập thông tin",
+                    "để tìm kiếm",
+                    "để tìm hiểu",
+                    "thông tin này sẽ giúp",
+                    "kết quả từ công cụ",
+                    "我调用",
+                    "工具",
+                    "结果显示",
+                    "信息显示",
+                    "i called",
+                    "the tool",
+                    "results show",
+                ]
+            ):
+                continue
+
+            # Skip lines that start with meta-narrative patterns
+            if para.strip().startswith(
+                (
+                    "Tôi quyết định",
+                    "Tôi gọi",
+                    "Sau khi nhận được",
+                    "Cuối cùng, tôi gọi",
+                    "Tôi cũng thấy",
+                    "Tôi thấy rằng",
+                    "Tôi hy vọng",
+                )
+            ):
+                # These are definitely meta-narrative, skip them
+                continue
+
+            # For other "Tôi" sentences, be more careful
+            if para.strip().startswith("Tôi "):
+                # Check if this is actually dialogue or important narrative
+                if (
+                    '"' not in para
+                    and "—" not in para
+                    and ":" not in para[:50]
+                    and any(
+                        word in para.lower()
+                        for word in [
+                            "công cụ",
+                            "thông tin",
+                            "kết quả",
+                            "tìm kiếm",
+                            "thu thập",
+                        ]
+                    )
+                ):
+                    continue
+
+            cleaned_paragraphs.append(para)
+
+        content = "\n\n".join(cleaned_paragraphs)
+
+        # Remove specific sentence patterns that reference tools
         tool_patterns = [
+            # Vietnamese patterns
             r"[^.!?]*\b(?:insight_forge|panorama_search|quick_search|interview_agents?)\b[^.!?]*[.!?]",
-            r"[^.!?]*(?:công cụ|工具|tool|Werkzeug)\s+(?:insight_forge|panorama_search|quick_search|interview)[^.!?]*[.!?]",
-            r"[^.!?]*(?:kết quả từ|结果来自|result from|Ergebnis von)\s+(?:công cụ|工具|tool|Werkzeug)[^.!?]*[.!?]",
-            r"[^.!?]*(?:Tôi gọi|我调用|I called|Ich rief)\s+(?:công cụ|工具|the tool|das Werkzeug)[^.!?]*[.!?]",
-            r"[^.!?]*(?:Sau khi nhận được kết quả|收到结果后|After receiving results)[^.!?]*[.!?]",
+            r"[^.!?]*(?:công cụ|tool)\s+(?:insight_forge|panorama_search|quick_search|interview)[^.!?]*[.!?]",
+            r"[^.!?]*(?:kết quả từ|result from)\s+(?:công cụ|tool)[^.!?]*[.!?]",
+            r"[^.!?]*(?:Tôi gọi|Tôi quyết định gọi|Cuối cùng, tôi gọi)[^.!?]*[.!?]",
+            r"[^.!?]*(?:Sau khi nhận được|Tôi thấy rằng|Tôi cũng thấy)[^.!?]*[.!?]",
+            r"[^.!?]*(?:để thu thập|để tìm kiếm|để tìm hiểu)\s+(?:thông tin|thêm thông tin)[^.!?]*[.!?]",
+            r"[^.!?]*(?:Tôi hy vọng|thông tin này sẽ giúp)[^.!?]*[.!?]",
+            # Chinese patterns
+            r"[^.!?]*(?:我调用|我决定调用|工具|结果显示|信息显示)[^.!?]*[.!?]",
+            # English patterns
+            r"[^.!?]*(?:I called|I decided to call|After receiving|This information)[^.!?]*[.!?]",
+            # German patterns
+            r"[^.!?]*(?:Ich rief|Werkzeug|Ergebnis von)[^.!?]*[.!?]",
         ]
+
         for pattern in tool_patterns:
-            content = _re.sub(pattern, "", content, flags=_re.IGNORECASE)
+            content = _re.sub(
+                pattern, "", content, flags=_re.IGNORECASE | _re.MULTILINE
+            )
+
+        # Remove lines that are just connective tissue about information gathering
+        lines = content.split("\n")
+        cleaned_lines = []
+        skip_next = False
+
+        for i, line in enumerate(lines):
+            if skip_next:
+                skip_next = False
+                continue
+
+            line_lower = line.strip().lower()
+
+            # Skip lines that are meta-commentary about the process
+            if any(
+                phrase in line_lower
+                for phrase in [
+                    "những thông tin này",
+                    "có những thông tin về",
+                    "có vài điều ở đây",
+                    "nội dung vẫn chứa",
+                    "ngoài ra nó cũng không giống",
+                ]
+            ):
+                # If next line is empty, skip it too
+                if i + 1 < len(lines) and not lines[i + 1].strip():
+                    skip_next = True
+                continue
+
+            cleaned_lines.append(line)
+
+        content = "\n".join(cleaned_lines)
+
         # Clean up multiple blank lines left by removals
         content = _re.sub(r"\n{3,}", "\n\n", content)
+
+        # Clean up blank lines at the beginning
+        content = content.lstrip("\n")
+
+        # Ensure content doesn't start with lowercase (which might indicate a fragment)
+        if content and content[0].islower():
+            # Find the first sentence that starts with uppercase
+            sentences = content.split(". ")
+            for i, sent in enumerate(sentences):
+                if sent.strip() and sent.strip()[0].isupper():
+                    content = ". ".join(sentences[i:])
+                    break
+
         return content.strip()
 
     def _define_tools(self) -> Dict[str, Dict[str, Any]]:
