@@ -567,98 +567,172 @@ class ReportAgent:
                 get_registry().mark_rate_limited(p.name, wait_seconds)
                 break
 
-    def _clean_story_content(self, content: str) -> str:
-        """Remove tool name references and meta-narrative from story output."""
+    def _transform_tool_references_to_narrative(self, content: str) -> str:
+        """Transform tool references into narrative actions while keeping 100% content."""
         import re as _re
 
-        # Step 1: Remove direct tool call sentences only
-        tool_call_patterns = [
-            r"Tôi (?:quyết định )?gọi công cụ [^.!?]+[.!?]",
-            r"[^.!?]*\bcông cụ (?:insight_forge|panorama_search|quick_search|interview_agents)\b[^.!?]*[.!?]",
-            r"Sau khi nhận được kết quả từ công cụ[^.!?]+[.!?]",
-            r"Cuối cùng, tôi gọi công cụ[^.!?]+[.!?]",
-            r"[^.!?]*để (?:thu thập|tìm kiếm|tìm hiểu) (?:thông tin|thêm thông tin) về[^.!?]+[.!?]",
-            r"Tôi hy vọng (?:rằng )?những thông tin này sẽ giúp[^.!?]+[.!?]",
-            # Chinese patterns  
-            r"[^.!?]*(?:我调用|我决定调用)[^.!?]*[.!?]",
-            r"[^.!?]*工具\s*(?:insight_forge|panorama_search|quick_search|interview_agents)[^.!?]*[.!?]",
-            # English patterns
-            r"[^.!?]*I (?:decided to )?call(?:ed)? (?:the )?tool[^.!?]+[.!?]",
-            r"[^.!?]*After receiving (?:the )?results? from[^.!?]+tool[^.!?]+[.!?]",
-            # German patterns
-            r"[^.!?]*Ich rief (?:das )?Werkzeug[^.!?]+[.!?]",
+        # Dictionary of transformations
+        transformations = {
+            # Vietnamese transformations
+            r"Tôi quyết định điều tra thêm về ([^.]+)\.": r"Một cảm giác thôi thúc mạnh mẽ khiến tôi phải tìm hiểu sâu hơn về \1. Có điều gì đó ẩn giấu đằng sau, và tôi phải khám phá ra sự thật.",
+            r"Tôi gọi công cụ insight_forge để thu thập thông tin về ([^.]+)\.": r"Tôi nhắm mắt lại, tập trung toàn bộ tâm trí để thấu hiểu sâu sắc hơn về \1. Những mảnh ký ức và tri thức ẩn sâu trong tiềm thức dần dần trỗi dậy.",
+            r"Sau khi nhận được kết quả từ công cụ [^,]+, ": r"Khi những hình ảnh và thông tin dần hiện rõ trong tâm trí, ",
+            r"Tôi (?:cũng )?thấy rằng có (?:những )?thông tin về ([^,]+), (.+?)\.": r"Trong tầm nhìn tâm linh của mình, tôi nhận ra \1 - \2.",
+            r"Tôi (?:cũng )?thấy rằng (.+?)\.": r"Một sự thật quan trọng được hé lộ: \1.",
+            r"Tôi quyết định gọi công cụ panorama_search để tìm kiếm thông tin về ([^.]+)\.": r"Tôi mở rộng tầm nhận thức, để tâm trí lang thang khắp không gian và thời gian, tìm kiếm mọi dấu vết liên quan đến \1.",
+            r"Cuối cùng, tôi gọi công cụ quick_search để tìm kiếm thông tin về ([^.]+)\.": r"Với một nỗ lực cuối cùng, tôi tập trung vào việc tìm kiếm nhanh những chi tiết cụ thể về \1.",
+            r"để thu thập thông tin về ([^.]+)\.": r"với hy vọng hiểu rõ hơn về \1.",
+            r"Tôi hy vọng (?:rằng )?những thông tin này sẽ giúp tôi hiểu rõ hơn về ([^.]+)\.": r"Tất cả những điều này dần dần tạo nên một bức tranh hoàn chỉnh về \1 trong tâm trí tôi.",
+            # Chinese transformations
+            r"我调用(.+?)工具": r"我运用内心的力量去探寻",
+            # English transformations
+            r"I (?:decided to )?call(?:ed)? the tool ([^.]+)\.": r"I focused my mind to understand more about the situation.",
+            r"After receiving the results": r"As the visions became clearer",
+        }
+
+        # Apply transformations
+        result = content
+        for pattern, replacement in transformations.items():
+            result = _re.sub(pattern, replacement, result, flags=_re.IGNORECASE)
+
+        # Clean up any remaining tool names
+        tool_names = [
+            "insight_forge",
+            "panorama_search",
+            "quick_search",
+            "interview_agents",
         ]
-        
-        cleaned = content
-        for pattern in tool_call_patterns:
-            cleaned = _re.sub(pattern, "", cleaned, flags=_re.IGNORECASE)
-        
-        # Step 2: Transform "discovery" sentences to preserve important content
-        # Instead of removing "Tôi thấy rằng", extract and reformat the content
-        
-        # Pattern to extract content after "Tôi thấy rằng có những thông tin về"
-        cleaned = _re.sub(
-            r"Tôi (?:cũng )?thấy rằng có (?:những )?thông tin về ([^,\.]+)(?:,|\.)([^.]*\.)?",
-            lambda m: f"\n\n{m.group(1).capitalize()} là {m.group(2) if m.group(2) else '.'}"
-            if 'một' in m.group(2) if m.group(2) else False
-            else f"\n\nCó thông tin quan trọng về {m.group(1)}{m.group(2) if m.group(2) else '.'}",
-            cleaned
-        )
-        
-        # General pattern for "Tôi thấy rằng"
-        cleaned = _re.sub(
-            r"Tôi (?:cũng )?thấy rằng ([^.]+)\.",
-            r"\n\n\1.",
-            cleaned
-        )
-        
-        # Remove empty paragraphs created by removals
-        paragraphs = cleaned.split('\n\n')
-        final_paragraphs = []
-        
-        for para in paragraphs:
-            para = para.strip()
-            # Skip empty paragraphs or those with only tool references
-            if not para:
+        for tool in tool_names:
+            result = result.replace(tool, "linh giác")
+
+        # Fix spacing and formatting
+        result = _re.sub(r"  +", " ", result)
+        result = _re.sub(r"\n{3,}", "\n\n", result)
+
+        return result.strip()
+
+    def _expand_story_with_llm(
+        self, content: str, target_word_count: int = 3000
+    ) -> str:
+        """Expand story content from ~300 words to target word count using LLM."""
+
+        # Step 1: Transform tool references to narrative
+        transformed_content = self._transform_tool_references_to_narrative(content)
+
+        # Step 2: Split into 6 outline sections
+        paragraphs = [p.strip() for p in transformed_content.split("\n\n") if p.strip()]
+
+        # Group paragraphs into 6 sections
+        sections = []
+        section_size = max(1, len(paragraphs) // 6)
+
+        for i in range(0, len(paragraphs), section_size):
+            section = "\n\n".join(paragraphs[i : i + section_size])
+            if section:
+                sections.append(section)
+
+        # Ensure we have 6 sections by splitting or combining as needed
+        while len(sections) < 6:
+            # Split the longest section
+            longest_idx = max(range(len(sections)), key=lambda i: len(sections[i]))
+            parts = sections[longest_idx].split("\n\n", 1)
+            if len(parts) == 2:
+                sections[longest_idx] = parts[0]
+                sections.insert(longest_idx + 1, parts[1])
+            else:
+                sections.append("")
+
+        while len(sections) > 6:
+            # Combine the shortest adjacent sections
+            shortest_idx = min(
+                range(len(sections) - 1),
+                key=lambda i: len(sections[i]) + len(sections[i + 1]),
+            )
+            sections[shortest_idx] = (
+                sections[shortest_idx] + "\n\n" + sections[shortest_idx + 1]
+            )
+            sections.pop(shortest_idx + 1)
+
+        # Step 3: Expand each section with LLM
+        expanded_sections = []
+        words_per_section = target_word_count // 6
+
+        p = get_prompts(self.locale)
+
+        for i, section in enumerate(sections):
+            if not section.strip():
                 continue
-                
-            # Skip paragraphs that are ONLY about tools/information gathering
-            if all(phrase in para.lower() for phrase in ['công cụ', 'kết quả']) and len(para) < 100:
-                continue
-                
-            # Skip meta-narrative about the investigation process itself
-            if para.startswith(('Tôi quyết định điều tra', 'Tôi quyết định tìm hiểu')):
-                # But check if there's important content after the first sentence
-                sentences = para.split('. ')
-                if len(sentences) > 1:
-                    # Keep the rest if it contains story content
-                    remaining = '. '.join(sentences[1:]).strip()
-                    if remaining and not any(word in remaining.lower() for word in ['công cụ', 'tool']):
-                        final_paragraphs.append(remaining)
-                continue
-            
-            final_paragraphs.append(para)
-        
-        # Rejoin paragraphs
-        result = '\n\n'.join(final_paragraphs)
-        
-        # Clean up formatting issues
-        result = _re.sub(r'\n{3,}', '\n\n', result)
-        result = _re.sub(r'  +', ' ', result)
-        result = result.strip()
-        
-        # Ensure proper sentence capitalization
-        if result:
-            sentences = result.split('. ')
-            capitalized = []
-            for sent in sentences:
-                sent = sent.strip()
-                if sent and sent[0].islower() and not sent.startswith(('và', 'hoặc', 'nhưng')):
-                    sent = sent[0].upper() + sent[1:]
-                capitalized.append(sent)
-            result = '. '.join(capitalized)
-        
-        return result
+
+            # Create expansion prompt
+            system_prompt = """Bạn là một nhà văn tài năng. Nhiệm vụ của bạn là mở rộng đoạn văn ngắn thành một phần của câu chuyện với chi tiết phong phú.
+
+Yêu cầu:
+- Giữ nguyên ý chính của đoạn gốc
+- Thêm chi tiết về: cảm xúc nhân vật, miêu tả cảnh vật, đối thoại, hành động cụ thể
+- Viết theo phong cách văn học, không phải báo cáo
+- Độ dài khoảng {words} từ
+- KHÔNG thêm tiêu đề hoặc số thứ tự""".format(words=words_per_section)
+
+            user_prompt = f"""Hãy mở rộng đoạn văn sau thành một phần câu chuyện chi tiết:
+
+{section}
+
+Lưu ý: Đây là phần {i + 1}/6 của câu chuyện."""
+
+            try:
+                response = self.llm.chat(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    temperature=0.7,
+                    max_tokens=2000,
+                )
+
+                if response:
+                    expanded_sections.append(response.strip())
+                else:
+                    expanded_sections.append(section)
+
+            except Exception as e:
+                logger.warning(f"Failed to expand section {i + 1}: {e}")
+                expanded_sections.append(section)
+
+        # Step 4: Merge and polish
+        full_story = "\n\n".join(expanded_sections)
+
+        # Final polish pass
+        polish_prompt = """Bạn là biên tập viên văn học. Hãy đọc và chỉnh sửa nhẹ câu chuyện sau để:
+- Đảm bảo tính liên kết giữa các phần
+- Sửa lỗi ngữ pháp, chính tả nếu có
+- Giữ nguyên nội dung và độ dài
+- Làm cho câu chuyện trôi chảy tự nhiên"""
+
+        try:
+            polished = self.llm.chat(
+                messages=[
+                    {"role": "system", "content": polish_prompt},
+                    {
+                        "role": "user",
+                        "content": f"Câu chuyện cần chỉnh sửa:\n\n{full_story}",
+                    },
+                ],
+                temperature=0.3,
+                max_tokens=4000,
+            )
+
+            if polished and len(polished) > len(full_story) * 0.8:
+                return polished.strip()
+
+        except Exception as e:
+            logger.warning(f"Polish pass failed: {e}")
+
+        return full_story
+
+    def _clean_story_content(self, content: str) -> str:
+        """Clean story content by transforming tool references to narrative."""
+        # Simply delegate to the transformation method
+        return self._transform_tool_references_to_narrative(content)
 
     def _define_tools(self) -> Dict[str, Dict[str, Any]]:
         """Define available tools."""
@@ -1616,9 +1690,11 @@ class ReportAgent:
                             str(section_err), "generating", section_title=section.title
                         )
 
-                # Post-process: strip tool name references from story output
+                # Post-process: transform tool references to narrative for story output
                 if self.mode == "story" and section_content:
-                    section_content = self._clean_story_content(section_content)
+                    section_content = self._transform_tool_references_to_narrative(
+                        section_content
+                    )
 
                 section.content = section_content
                 generated_sections.append(f"## {section.title}\n\n{section_content}")
@@ -1674,6 +1750,38 @@ class ReportAgent:
             report.markdown_content = ReportManager.assemble_full_report(
                 report_id, outline
             )
+
+            # For story mode, expand the content from ~300 words to 3000 words
+            if self.mode == "story" and report.markdown_content:
+                if progress_callback:
+                    progress_callback(
+                        "generating",
+                        97,
+                        "Expanding story content..."
+                        if self.locale != "zh"
+                        else "正在扩展故事内容...",
+                    )
+
+                try:
+                    expanded_content = self._expand_story_with_llm(
+                        report.markdown_content
+                    )
+                    if expanded_content and len(expanded_content) > len(
+                        report.markdown_content
+                    ):
+                        report.markdown_content = expanded_content
+                        # Save the expanded version directly to full_report.md
+                        full_path = ReportManager._get_report_markdown_path(report_id)
+                        with open(full_path, "w", encoding="utf-8") as f:
+                            f.write(expanded_content)
+                        logger.info(
+                            f"Story expanded from {len(report.markdown_content.split())} to {len(expanded_content.split())} words"
+                        )
+                except Exception as e:
+                    logger.warning(
+                        f"Story expansion failed: {e}, keeping original transformed content"
+                    )
+
             report.status = ReportStatus.COMPLETED
             report.completed_at = datetime.now().isoformat()
 
