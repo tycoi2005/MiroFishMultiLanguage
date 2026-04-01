@@ -526,6 +526,16 @@ def prepare_simulation():
                 defined_entity_types=entity_types_list,
                 enrich_with_edges=False,  # 不获取边信息，加快速度
             )
+            if filtered_preview.filtered_count == 0:
+                logger.info(
+                    "预览模式未匹配到类型化实体，使用通用实体降级模式重新统计"
+                )
+                filtered_preview = reader.filter_defined_entities(
+                    graph_id=state.graph_id,
+                    defined_entity_types=None,
+                    enrich_with_edges=False,
+                    allow_generic_entity_label=True,
+                )
             # 保存实体数量到状态（供前端立即获取）
             state.entities_count = filtered_preview.filtered_count
             state.entity_types = list(filtered_preview.entity_types)
@@ -637,10 +647,16 @@ def prepare_simulation():
                     locale=locale,
                 )
 
-                # 任务完成
-                task_manager.complete_task(
-                    task_id, result=result_state.to_simple_dict()
-                )
+                # 准备流程可能返回 failed 状态（如无可用实体），任务状态需与模拟状态一致
+                if result_state.status == SimulationStatus.FAILED:
+                    task_manager.fail_task(
+                        task_id,
+                        result_state.error or "准备模拟失败",
+                    )
+                else:
+                    task_manager.complete_task(
+                        task_id, result=result_state.to_simple_dict()
+                    )
 
             except Exception as e:
                 logger.error(f"准备模拟失败: {str(e)}")
@@ -2120,8 +2136,8 @@ def get_simulation_posts(simulation_id: str):
         try:
             cursor.execute(
                 """
-                SELECT * FROM post 
-                ORDER BY created_at DESC 
+                SELECT * FROM post
+                ORDER BY created_at DESC
                 LIMIT ? OFFSET ?
             """,
                 (limit, offset),
@@ -2191,9 +2207,9 @@ def get_simulation_comments(simulation_id: str):
             if post_id:
                 cursor.execute(
                     """
-                    SELECT * FROM comment 
+                    SELECT * FROM comment
                     WHERE post_id = ?
-                    ORDER BY created_at DESC 
+                    ORDER BY created_at DESC
                     LIMIT ? OFFSET ?
                 """,
                     (post_id, limit, offset),
@@ -2201,8 +2217,8 @@ def get_simulation_comments(simulation_id: str):
             else:
                 cursor.execute(
                     """
-                    SELECT * FROM comment 
-                    ORDER BY created_at DESC 
+                    SELECT * FROM comment
+                    ORDER BY created_at DESC
                     LIMIT ? OFFSET ?
                 """,
                     (limit, offset),

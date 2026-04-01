@@ -189,6 +189,38 @@ except ImportError as e:
     sys.exit(1)
 
 
+# ============================================================
+# Monkey-patch: 修复零参数工具的 JSON Schema 兼容性问题
+# Groq API 会拒绝 `required` 存在但 `properties` 为空的 schema
+# 例如 do_nothing 和 trend 工具没有参数，生成的 schema 包含
+# {"properties": {}, "required": [], ...}，Groq 会报错：
+# "'required' present but 'properties' is missing"
+# 此补丁包装 FunctionTool.__init__，在 schema 生成后修复空参数问题
+# ============================================================
+from camel.toolkits.function_tool import FunctionTool as _FunctionTool
+
+_original_ft_init = _FunctionTool.__init__
+
+
+def _patched_ft_init(self, *args, **kwargs):
+    """Patched FunctionTool.__init__ that fixes empty-parameter tool schemas."""
+    _original_ft_init(self, *args, **kwargs)
+    try:
+        params = self.openai_tool_schema.get("function", {}).get("parameters", {})
+        properties = params.get("properties", {})
+        required = params.get("required", None)
+        # If properties is empty and required is an empty list, remove required
+        # to satisfy Groq API's stricter validation
+        if not properties and required is not None and len(required) == 0:
+            params.pop("required", None)
+    except (AttributeError, TypeError):
+        pass
+
+
+_FunctionTool.__init__ = _patched_ft_init
+print("[Patch] 已应用零参数工具 Schema 兼容性补丁 (Groq API)")
+
+
 # Twitter可用动作（不包含INTERVIEW，INTERVIEW只能通过ManualAction手动触发）
 TWITTER_ACTIONS = [
     ActionType.CREATE_POST,

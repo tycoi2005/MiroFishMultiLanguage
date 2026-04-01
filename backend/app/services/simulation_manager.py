@@ -289,6 +289,25 @@ class SimulationManager:
                 enrich_with_edges=True,
             )
 
+            # 降级策略：部分图谱节点只有默认标签(Entity/Node)，此时使用通用实体继续流程
+            if filtered.filtered_count == 0:
+                logger.warning(
+                    f"图谱 {state.graph_id} 未找到带自定义标签的实体，尝试使用通用实体降级模式"
+                )
+                if progress_callback:
+                    progress_callback(
+                        "reading",
+                        60,
+                        "未找到带类型标签的实体，尝试通用实体模式...",
+                    )
+
+                filtered = reader.filter_defined_entities(
+                    graph_id=state.graph_id,
+                    defined_entity_types=None,
+                    enrich_with_edges=True,
+                    allow_generic_entity_label=True,
+                )
+
             state.entities_count = filtered.filtered_count
             state.entity_types = list(filtered.entity_types)
 
