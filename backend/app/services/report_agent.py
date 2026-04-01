@@ -568,6 +568,64 @@ class ReportAgent:
                 get_registry().mark_rate_limited(p.name, wait_seconds)
                 break
 
+    @staticmethod
+    def _is_request_too_large_error(error: Exception) -> bool:
+        """Detect provider errors caused by oversized prompt/token budget (e.g. Groq 413 TPM)."""
+        msg = str(error).lower()
+        return (
+            "413" in msg
+            or "request too large" in msg
+            or "reduce your message size" in msg
+            or "tokens per minute" in msg
+            or "tpm" in msg
+        )
+
+    def _generate_section_compact_fallback(
+        self,
+        section: ReportSection,
+        outline: ReportOutline,
+        previous_sections: List[str],
+    ) -> str:
+        """
+        Generate section content using a compact prompt with no tool loop.
+
+        This is a last-resort fallback for 413/TPM overflow scenarios.
+        """
+        prev_summary = ""
+        if previous_sections:
+            # Keep only short tail context to preserve continuity while minimizing tokens
+            prev_summary = previous_sections[-1][-600:]
+
+        if self.mode == "story":
+            system_prompt = (
+                f"Write chapter '{section.title}' for a story. "
+                f"Requirement: {self.simulation_requirement}\n"
+                "Keep continuity, vivid details, and natural dialogue. "
+                "Do not include tool calls or extra headings."
+            )
+        else:
+            system_prompt = (
+                f"Write report section '{section.title}' for: {outline.title}.\n"
+                f"Requirement: {self.simulation_requirement}\n"
+                "Use clear analysis and concrete evidence. "
+                "Do not include tool calls or meta commentary."
+            )
+
+        user_prompt = (
+            f"Previous context (short):\n{prev_summary}\n\n"
+            f"Now write the full section: {section.title}"
+        )
+
+        max_tokens = 1200 if self.mode == "story" else 1000
+        return self.llm.chat(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.6,
+            max_tokens=max_tokens,
+        )
+
     def _transform_tool_references_to_narrative(self, content: str) -> str:
         """Transform tool references into narrative actions while keeping 100% content."""
         import re as _re
@@ -1770,7 +1828,24 @@ Write vivid narrative focusing on this chapter's theme."""
                     logger.error(
                         f"Section {section.title} generation failed: {str(section_err)}"
                     )
-                    section_content = f"[Section generation failed: {str(section_err)}. Please retry later.]"
+                    # For 413/TPM errors, retry with a compact prompt so the report can continue.
+                    if self._is_request_too_large_error(section_err):
+                        logger.warning(
+                            f"Section {section.title}: request too large, retrying with compact fallback prompt"
+                        )
+                        try:
+                            section_content = self._generate_section_compact_fallback(
+                                section=section,
+                                outline=outline,
+                                previous_sections=generated_sections,
+                            )
+                        except Exception as fallback_err:
+                            logger.error(
+                                f"Section {section.title} compact fallback failed: {str(fallback_err)}"
+                            )
+                            section_content = f"[Section generation failed: {str(fallback_err)}. Please retry later.]"
+                    else:
+                        section_content = f"[Section generation failed: {str(section_err)}. Please retry later.]"
                     if self.report_logger:
                         self.report_logger.log_error(
                             str(section_err), "generating", section_title=section.title
